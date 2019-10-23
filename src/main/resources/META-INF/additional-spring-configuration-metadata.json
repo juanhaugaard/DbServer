@@ -1,0 +1,10 @@
+{"hints": [
+  {
+    "name": "server.options",
+    "values": [
+      {
+        "value": "-web -tcp -pg -baseDir ${user.home}/data -trace"
+      }
+    ]
+  }
+]}
