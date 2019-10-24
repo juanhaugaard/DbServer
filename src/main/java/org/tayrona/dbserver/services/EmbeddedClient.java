@@ -25,8 +25,9 @@ public class EmbeddedClient implements Runnable {
 
     private String[] sql = {
             "DROP TABLE TIMER IF EXISTS",
-            "CREATE TABLE TIMER(ID INT PRIMARY KEY, TIME VARCHAR)",
-            "MERGE INTO TIMER VALUES(1, LOCALTIME)"
+            "CREATE TABLE TIMER(ID IDENTITY PRIMARY KEY, AN_ID INT, S_TIME VARCHAR(64), A_TIME TIME, A_DATE DATE, DATE_TIME TIMESTAMP, A_DECIMAL DECIMAL, A_DOUBLE DOUBLE, A_REAL REAL, A_BIGINT BIGINT)",
+            "MERGE INTO TIMER(ID, S_TIME) VALUES(1, LOCALTIME)",
+            "INSERT INTO TIMER(S_TIME, AN_ID, A_TIME, A_DATE, DATE_TIME, A_DECIMAL, A_DOUBLE, A_REAL, A_BIGINT) VALUES(LOCALTIME, RANDOM()*100, CURRENT_TIME, CURRENT_DATE, CURRENT_TIMESTAMP, RANDOM()*100, RANDOM()*100, RANDOM()*100, RANDOM()*100)"
     };
 
     @PostConstruct
@@ -58,7 +59,7 @@ public class EmbeddedClient implements Runnable {
         try (Statement stat = conn.createStatement()) {
             while (true) {
                 // runs forever, except if you drop the table remotely
-                stat.execute(sql[2]);
+                stat.execute(sql[3]);
                 Thread.sleep(1000);
             }
         } catch (SQLException | InterruptedException e) {
