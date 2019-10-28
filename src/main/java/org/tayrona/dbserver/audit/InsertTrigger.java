@@ -35,7 +35,7 @@ public class InsertTrigger extends BaseTrigger {
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
         JSONObject payload = calcJsonObject(oldRow, newRow);
         EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
-        EventAuditQueue eventAuditQueue = EventAuditQueue.get();
+        EventAuditQueue eventAuditQueue = getEventAuditQueue();
         if (eventAuditQueue == null) {
             log.error("EventAuditQueue is null, Autowire failed!");
         } else {

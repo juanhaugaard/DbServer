@@ -1,9 +1,7 @@
 package org.tayrona.dbserver.audit;
 
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.h2.api.Trigger;
-import org.h2.schema.Schema;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 
@@ -15,6 +13,7 @@ import java.util.List;
 
 @Slf4j
 public abstract class BaseTrigger implements Trigger {
+    protected static EventAuditQueue eventAuditQueue;
     protected final String CLASS_NAME;
     protected String schemaName, triggerName, tableName, catalog, action;
     protected boolean before;
@@ -177,5 +176,13 @@ public abstract class BaseTrigger implements Trigger {
 
     public List<String> getColumns() {
         return columns;
+    }
+
+    public EventAuditQueue getEventAuditQueue() {
+        return BaseTrigger.eventAuditQueue;
+    }
+
+    public static void setEventAuditQueue(EventAuditQueue queue) {
+        BaseTrigger.eventAuditQueue = queue;
     }
 }
