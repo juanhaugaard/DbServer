@@ -1,15 +1,24 @@
 package org.tayrona.dbserver.audit;
 
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.h2.api.Trigger;
+import org.h2.schema.Schema;
+import org.springframework.boot.configurationprocessor.json.JSONException;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
-public class BaseTrigger implements Trigger {
+public abstract class BaseTrigger implements Trigger {
     protected static final String CLASS_NAME = BaseTrigger.class.getSimpleName();
-    protected String schemaName, triggerName, tableName, catalog;
+    protected String schemaName, triggerName, tableName, catalog, action;
+    protected boolean before;
+    protected List<String> columns;
 
     /**
      * This method is called by the database engine once when initializing the
@@ -28,12 +37,17 @@ public class BaseTrigger implements Trigger {
      * @param type        the operation type: INSERT, UPDATE, DELETE, SELECT, or a
      */
     @Override
-    public void init(Connection conn, String schemaName, String triggerName, String tableName, boolean before, int type) throws SQLException {
+    public void init(Connection conn, String schemaName, String triggerName, String tableName,
+                     boolean before, int type) throws SQLException {
         this.schemaName = schemaName;
         this.triggerName = triggerName;
         this.tableName = tableName;
         this.catalog = conn.getCatalog();
-        log.info("{}.init(catalog:{}, schema:{}, name:{}, table:{}, before:{}, type:{})", CLASS_NAME, conn.getCatalog(), schemaName, triggerName, tableName, before, type);
+        this.before = before;
+        this.columns = extractColumns(conn);
+        this.action = calcActions(type);
+        log.info("{}.init(catalog:{}, schema:{}, name:{}, table:{}, before:{}, type:{})",
+                CLASS_NAME, catalog, schemaName, triggerName, tableName, before, type);
     }
 
     /**
@@ -60,18 +74,10 @@ public class BaseTrigger implements Trigger {
      */
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        log.info("{}.fire(catalog:{}, schema:{}, name:{}, table:{})", CLASS_NAME, conn.getCatalog(), schemaName, triggerName, tableName);
+        log.info("{}.fire(catalog:{}, schema:{}, name:{}, table:{})", CLASS_NAME, this.catalog, schemaName, triggerName, tableName);
         log.info("{}.fire() - old:{}, new:{}", CLASS_NAME, oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items");
-        if (oldRow != null) {
-            for (int i = 0; i < oldRow.length; i++) {
-                log.info("{}.fire() -\told:{}- {}, {}", CLASS_NAME, i, oldRow[i], oldRow[i].getClass().getName());
-            }
-        }
-        if (newRow != null) {
-            for (int i = 0; i < newRow.length; i++) {
-                log.info("{}.fire() -\tnew:{}- {}, {}", CLASS_NAME, i, newRow[i], newRow[i].getClass().getName());
-            }
-        }
+        JSONObject jsonObject = calcJsonObject(oldRow, newRow);
+        log.info("{}.fire() -   {}", CLASS_NAME, jsonObject);
     }
 
     /**
@@ -90,5 +96,82 @@ public class BaseTrigger implements Trigger {
     @Override
     public void remove() throws SQLException {
         log.info("{}.remove()", CLASS_NAME);
+    }
+
+    protected JSONObject calcJsonObject(Object[] oldRow, Object[] newRow) throws SQLException {
+        JSONObject ret = new JSONObject();
+        try {
+            if (oldRow != null) {
+                for (int i = 0; i < oldRow.length; i++) {
+                    ret.put(this.columns.get(i), oldRow[i]);
+                }
+            }
+            if (newRow != null) {
+                for (int i = 0; i < newRow.length; i++) {
+                    ret.put(this.columns.get(i), newRow[i]);
+                }
+            }
+        } catch (JSONException e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        return ret;
+    }
+
+    private List<String> extractColumns(Connection conn) throws SQLException {
+        List<String> ret = new ArrayList<>();
+        ResultSet dbSchema = conn.getMetaData().getColumns(catalog, schemaName, tableName, null);
+        if (!dbSchema.isFirst()) {
+            dbSchema.next();
+        }
+        do {
+            ret.add(dbSchema.getString(4));
+            dbSchema.next();
+        } while (!dbSchema.isAfterLast());
+        return ret;
+    }
+
+    private String calcActions(int type) {
+        List<String> actions = new ArrayList<>();
+        if ((type & Trigger.INSERT) != 0) {
+            actions.add("INSERT");
+        }
+        if ((type & Trigger.UPDATE) != 0) {
+            actions.add("UPDATE");
+        }
+        if ((type & Trigger.DELETE) != 0) {
+            actions.add("DELETE");
+        }
+        if ((type & Trigger.SELECT) != 0) {
+            actions.add("SELECT");
+        }
+        return String.join(" | ", actions);
+    }
+
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    public String getTriggerName() {
+        return triggerName;
+    }
+
+    public String getTableName() {
+        return tableName;
+    }
+
+    public String getCatalog() {
+        return catalog;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public boolean isBefore() {
+        return before;
+    }
+
+    public List<String> getColumns() {
+        return columns;
     }
 }
