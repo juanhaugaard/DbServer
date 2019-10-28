@@ -9,8 +9,6 @@ import java.sql.SQLException;
 
 @Slf4j
 public class InsertTrigger extends BaseTrigger {
-    @Autowired
-    private AuditQueue queue;
 
     /**
      * This method is called for each triggered action. The method is called
@@ -37,7 +35,12 @@ public class InsertTrigger extends BaseTrigger {
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
         JSONObject payload = calcJsonObject(oldRow, newRow);
-        QueueItem item = new QueueItem(schemaName, tableName, action, payload);
-        queue.put(item);
+        EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
+        EventAuditQueue queue = EventAuditQueue.get();
+        if (queue == null) {
+            log.error("EventAuditQueue is null, Autowire failed!");
+        } else {
+            queue.put(item);
+        }
     }
 }

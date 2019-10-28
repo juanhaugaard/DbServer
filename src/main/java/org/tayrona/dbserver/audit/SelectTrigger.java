@@ -10,7 +10,7 @@ import java.sql.SQLException;
 @Slf4j
 public class SelectTrigger extends BaseTrigger {
     @Autowired
-    private AuditQueue queue;
+    private EventAuditQueue queue;
 
     /**
      * This method is called for each triggered action. The method is called
@@ -37,7 +37,7 @@ public class SelectTrigger extends BaseTrigger {
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
         JSONObject payload = calcJsonObject(oldRow, newRow);
-        QueueItem item = new QueueItem(schemaName, tableName, action, payload);
+        EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
         queue.put(item);
     }
 }

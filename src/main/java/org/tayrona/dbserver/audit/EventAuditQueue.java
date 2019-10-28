@@ -9,7 +9,6 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.NoSuchElementException;
@@ -18,7 +17,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
 @Component
-public class AuditQueue implements Runnable {
+public class EventAuditQueue implements Runnable {
     @Value("${spring.datasource.username}")
     private String username;
     @Value("${spring.datasource.password}")
@@ -29,17 +28,31 @@ public class AuditQueue implements Runnable {
     private TransactionIdFactory transactions;
     private Connection conn;
     private Thread thread;
-    private Queue<QueueItem> queue = new ConcurrentLinkedQueue<>();
+    private Queue<EventQueueItem> queue = new ConcurrentLinkedQueue<>();
     private boolean requestStop;
+    private static EventAuditQueue instance = null;
 
     @PostConstruct
     public void setup() throws SQLException {
+        instance = this;
         log.debug("Queue setup");
         requestStop = false;
         conn = dataSource.getConnection(username, password);
         thread = new Thread(this, this.getClass().getSimpleName());
         thread.setDaemon(true);
         thread.start();
+    }
+
+    public static synchronized EventAuditQueue get() {
+        while (instance == null) {
+            try {
+                EventAuditQueue.class.wait();
+            } catch (InterruptedException e) {
+                log.error(e.getMessage(), e);
+                return null;
+            }
+        }
+        return instance;
     }
 
     @PreDestroy
@@ -49,10 +62,13 @@ public class AuditQueue implements Runnable {
         thread.interrupt();
     }
 
-    public boolean put(QueueItem item) {
+    public boolean put(EventQueueItem item) {
         log.debug("Queue put");
-        boolean ret = queue.add(item);
-        queue.notify();
+        boolean ret;
+        synchronized (queue) {
+            ret = queue.add(item);
+            queue.notify();
+        }
         return ret;
     }
 
@@ -70,14 +86,16 @@ public class AuditQueue implements Runnable {
     @Override
     public void run() {
         log.debug("Queue run");
-        QueueItem item;
+        EventQueueItem item;
         while (!requestStop) {
             try {
                 item = queue.remove();
                 process(item);
             } catch (NoSuchElementException e) {
                 try {
-                    queue.wait();
+                    synchronized (queue) {
+                        queue.wait();
+                    }
                 } catch (InterruptedException ex) {
                     log.error(e.getMessage(), ex);
                 }
@@ -87,7 +105,7 @@ public class AuditQueue implements Runnable {
         }
     }
 
-    private void process(QueueItem item) {
+    private void process(EventQueueItem item) {
         log.debug("Queue process");
         if (item != null) {
             TransactionIdentifier id = transactions.get();

@@ -15,10 +15,14 @@ import java.util.List;
 
 @Slf4j
 public abstract class BaseTrigger implements Trigger {
-    protected static final String CLASS_NAME = BaseTrigger.class.getSimpleName();
+    protected final String CLASS_NAME;
     protected String schemaName, triggerName, tableName, catalog, action;
     protected boolean before;
     protected List<String> columns;
+
+    protected BaseTrigger() {
+         CLASS_NAME = this.getClass().getSimpleName();
+    }
 
     /**
      * This method is called by the database engine once when initializing the
