@@ -2,9 +2,13 @@ package org.tayrona.dbserver;
 
 import lombok.extern.slf4j.Slf4j;
 import org.h2.jdbcx.JdbcDataSource;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanInitializationException;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.EnvironmentAware;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.tayrona.dbserver.config.H2Configuration;
@@ -15,7 +19,11 @@ import java.util.List;
 
 @Slf4j
 @SpringBootApplication
-public class Application implements EnvironmentAware {
+public class Application implements ApplicationContextAware {
+
+    private static Environment environment;
+
+    private static ApplicationContext applicationContext;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -28,10 +36,6 @@ public class Application implements EnvironmentAware {
         return dataSource;
     }
 
-    @Override
-    public void setEnvironment(Environment environment) {
-        reportProperties(environment);
-    }
     private void reportProperties(Environment environment) {
         if (environment == null) {
             log.warn("Environment is null, skipping properties report");
@@ -63,5 +67,39 @@ public class Application implements EnvironmentAware {
                     .forEach(logMsg -> log.info("*** {}", logMsg));
             log.info("*** End Properties Report ***");
         }
+    }
+
+    /**
+     * Set the ApplicationContext that this object runs in.
+     * Normally this call will be used to initialize the object.
+     * <p>Invoked after population of normal bean properties but before an init callback such
+     * as {@link InitializingBean#afterPropertiesSet()}
+     * or a custom init-method. Invoked after {@link ResourceLoaderAware#setResourceLoader},
+     * {@link ApplicationEventPublisherAware#setApplicationEventPublisher} and
+     * {@link MessageSourceAware}, if applicable.
+     *
+     * @param context the ApplicationContext object to be used by this object
+     * @throws ApplicationContextException in case of context initialization errors
+     * @throws BeansException              if thrown by application context methods
+     * @see BeanInitializationException
+     */
+    @Override
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
+        org.tayrona.dbserver.Application.applicationContext = context;
+        if (org.tayrona.dbserver.Application.applicationContext != null) {
+            setEnvironment(org.tayrona.dbserver.Application.applicationContext.getEnvironment());
+        }
+    }
+
+    public void setEnvironment(Environment environment) {
+        reportProperties(environment);
+    }
+
+    public static ApplicationContext getApplicationContext() {
+        return org.tayrona.dbserver.Application.applicationContext;
+    }
+
+    public static Environment getEnvironment() {
+        return org.tayrona.dbserver.Application.environment;
     }
 }

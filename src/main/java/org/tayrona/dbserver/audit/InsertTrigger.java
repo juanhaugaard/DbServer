@@ -1,7 +1,6 @@
 package org.tayrona.dbserver.audit;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 import java.sql.Connection;
@@ -36,11 +35,11 @@ public class InsertTrigger extends BaseTrigger {
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
         JSONObject payload = calcJsonObject(oldRow, newRow);
         EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
-        EventAuditQueue queue = EventAuditQueue.get();
-        if (queue == null) {
+        EventAuditQueue eventAuditQueue = EventAuditQueue.get();
+        if (eventAuditQueue == null) {
             log.error("EventAuditQueue is null, Autowire failed!");
         } else {
-            queue.put(item);
+            eventAuditQueue.put(item);
         }
     }
 }

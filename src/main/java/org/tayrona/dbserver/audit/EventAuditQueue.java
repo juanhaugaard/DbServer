@@ -3,7 +3,9 @@ package org.tayrona.dbserver.audit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+import org.tayrona.dbserver.Application;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -28,14 +30,23 @@ public class EventAuditQueue implements Runnable {
     private TransactionIdFactory transactions;
     private Connection conn;
     private Thread thread;
-    private Queue<EventQueueItem> queue = new ConcurrentLinkedQueue<>();
+    private Queue<EventQueueItem> queue = null;
     private boolean requestStop;
-    private static EventAuditQueue instance = null;
+    private static EventAuditQueue singletonInstance = null;
+    private static ApplicationContext applicationContext;
+
+    @Autowired
+    private EventAuditQueue(ApplicationContext context) {
+        queue = new ConcurrentLinkedQueue<>();
+        org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance = this;
+        org.tayrona.dbserver.audit.EventAuditQueue.applicationContext = context;
+        log.debug("Queue constructed");
+    }
 
     @PostConstruct
     public void setup() throws SQLException {
-        instance = this;
         log.debug("Queue setup");
+        org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance = this;
         requestStop = false;
         conn = dataSource.getConnection(username, password);
         thread = new Thread(this, this.getClass().getSimpleName());
@@ -44,15 +55,22 @@ public class EventAuditQueue implements Runnable {
     }
 
     public static synchronized EventAuditQueue get() {
-        while (instance == null) {
-            try {
-                EventAuditQueue.class.wait();
-            } catch (InterruptedException e) {
-                log.error(e.getMessage(), e);
-                return null;
+        log.debug("Queue.get() - instance: {}", org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance);
+        if (org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance == null) {
+            if (org.tayrona.dbserver.audit.EventAuditQueue.applicationContext != null) {
+                org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance = org.tayrona.dbserver.audit.EventAuditQueue.applicationContext.getBean(EventAuditQueue.class);
+                log.debug("Queue.get() - instance from context: {}", org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance);
+            } else {
+                org.tayrona.dbserver.audit.EventAuditQueue.applicationContext = Application.getApplicationContext();
+                if (org.tayrona.dbserver.audit.EventAuditQueue.applicationContext != null) {
+                    org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance = org.tayrona.dbserver.audit.EventAuditQueue.applicationContext.getBean(EventAuditQueue.class);
+                    log.debug("Queue.get() - instance from App.getContext: {}", org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance);
+                } else {
+                    log.error("Queue.get() - ApplicationContext: {}", org.tayrona.dbserver.audit.EventAuditQueue.applicationContext);
+                }
             }
         }
-        return instance;
+        return org.tayrona.dbserver.audit.EventAuditQueue.singletonInstance;
     }
 
     @PreDestroy
@@ -67,7 +85,7 @@ public class EventAuditQueue implements Runnable {
         boolean ret;
         synchronized (queue) {
             ret = queue.add(item);
-            queue.notify();
+            queue.notifyAll();
         }
         return ret;
     }
@@ -94,7 +112,7 @@ public class EventAuditQueue implements Runnable {
             } catch (NoSuchElementException e) {
                 try {
                     synchronized (queue) {
-                        queue.wait();
+                        queue.wait(1000);
                     }
                 } catch (InterruptedException ex) {
                     log.error(e.getMessage(), ex);
