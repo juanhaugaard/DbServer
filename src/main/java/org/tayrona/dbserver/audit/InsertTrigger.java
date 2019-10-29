@@ -37,7 +37,7 @@ public class InsertTrigger extends BaseTrigger {
         EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
         EventAuditQueue eventAuditQueue = getEventAuditQueue();
         if (eventAuditQueue == null) {
-            log.error("EventAuditQueue is null, Autowire failed!");
+            log.error("EventAuditQueue is null!");
         } else {
             eventAuditQueue.put(item);
         }

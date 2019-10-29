@@ -3,15 +3,14 @@ package org.tayrona.dbserver.audit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -31,17 +30,17 @@ public class EventAuditQueue implements Runnable {
     private Thread thread;
     private Queue<EventQueueItem> queue = null;
     private boolean requestStop;
+    private static EventAuditQueue instance;
 
-    @Autowired
-    private EventAuditQueue(ApplicationContext context) {
+    private EventAuditQueue() {
         queue = new ConcurrentLinkedQueue<>();
+        instance = this;
         log.debug("Queue constructed");
     }
 
     @PostConstruct
     public void setup() throws SQLException {
         log.debug("Queue setup");
-        BaseTrigger.setEventAuditQueue(this);
         requestStop = false;
         conn = dataSource.getConnection(username, password);
         thread = new Thread(this, this.getClass().getSimpleName());
@@ -99,15 +98,24 @@ public class EventAuditQueue implements Runnable {
         }
     }
 
+    public static EventAuditQueue get() {
+        return instance;
+    }
+
     private void process(EventQueueItem item) {
         log.debug("Queue process");
         if (item != null) {
             TransactionIdentifier id = transactions.get();
-            String sql = String.format("INSERT INTO AUDIT.EVENTS(TDATE, TSEQ, TSQUEMA, TTABLE, TACTION, PAYLOAD) VALUES(%s, %s, %s, %s, %s, %s)",
-                    id.getDate().toString(), id.getSeq().toString(), item.getSchemaName(),
-                    item.getTableName(), item.getAction(), item.getPayload().toString());
-            try (Statement stat = conn.createStatement()) {
-                stat.execute(sql);
+            String payload = item.getPayload().toString();
+            String sql = "MERGE INTO AUDIT.EVENTS(TDATE, TSEQ, TSQUEMA, TTABLE, TACTION, PAYLOAD) VALUES(?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement stat = conn.prepareStatement(sql)) {
+                stat.setDate(1, id.getDate());
+                stat.setLong(2, id.getSeq());
+                stat.setString(3, item.getSchemaName());
+                stat.setString(4, item.getTableName());
+                stat.setString(5, item.getAction());
+                stat.setString(6, payload);
+                stat.execute();
             } catch (SQLException e) {
                 log.error(e.getMessage(), e);
             }
