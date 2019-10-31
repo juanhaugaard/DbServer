@@ -28,10 +28,11 @@ public class EmbeddedClient implements Runnable {
             "CREATE TABLE IF NOT EXISTS TIMER(ID IDENTITY PRIMARY KEY, AN_ID INT, S_TIME VARCHAR(64), A_TIME TIME, A_DATE DATE, DATE_TIME TIMESTAMP, A_DECIMAL DECIMAL, A_DOUBLE DOUBLE, A_REAL REAL, A_BIGINT BIGINT)",
             "MERGE INTO TIMER(ID, S_TIME) VALUES(1, LOCALTIME)",
             "INSERT INTO TIMER(S_TIME, AN_ID, A_TIME, A_DATE, DATE_TIME, A_DECIMAL, A_DOUBLE, A_REAL, A_BIGINT) VALUES(LOCALTIME, RANDOM()*100, CURRENT_TIME, CURRENT_DATE, CURRENT_TIMESTAMP, RANDOM()*100, RANDOM()*100, RANDOM()*100, RANDOM()*100)",
-            "CREATE TRIGGER PUBLIC.INSERT_AUDIT AFTER INSERT ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.InsertTrigger\";",
-            "CREATE TRIGGER PUBLIC.UPDATE_AUDIT AFTER UPDATE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.UpdateTrigger\";",
-            "CREATE TRIGGER PUBLIC.DELETE_AUDIT AFTER DELETE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.DeleteTrigger\";",
-            "CREATE TRIGGER PUBLIC.ROLLBACK_AUDIT AFTER ROLLBACK ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.RollbackTrigger\";"
+            "CREATE TRIGGER IF NOT EXISTS PUBLIC.INSERT_AUDIT AFTER INSERT ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.InsertTrigger\";",
+            "CREATE TRIGGER IF NOT EXISTS PUBLIC.UPDATE_AUDIT AFTER UPDATE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.UpdateTrigger\";",
+            "CREATE TRIGGER IF NOT EXISTS PUBLIC.DELETE_AUDIT AFTER DELETE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.DeleteTrigger\";",
+            "CREATE TRIGGER IF NOT EXISTS PUBLIC.SELECT_AUDIT BEFORE SELECT ON PUBLIC.TIMER CALL \"org.tayrona.dbserver.audit.SelectTrigger\";",
+            "CREATE TRIGGER IF NOT EXISTS PUBLIC.ROLLBACK_AUDIT AFTER ROLLBACK ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.RollbackTrigger\";"
     };
 
     @PostConstruct
@@ -44,6 +45,7 @@ public class EmbeddedClient implements Runnable {
         stat.execute(sql[5]);
         stat.execute(sql[6]);
         stat.execute(sql[7]);
+        stat.execute(sql[8]);
         log.info("Execute this a few times: SELECT TIME FROM TIMER");
         log.info("To stop this application (and the server), run: DROP TABLE TIMER");
         Thread thread = new Thread(this);
