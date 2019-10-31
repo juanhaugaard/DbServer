@@ -76,10 +76,14 @@ public abstract class BaseTrigger implements Trigger {
      */
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        log.info("{}.fire(catalog:{}, schema:{}, name:{}, table:{})", CLASS_NAME, this.catalog, schemaName, triggerName, tableName);
-        log.info("{}.fire() - old:{}, new:{}", CLASS_NAME, oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items");
-        JSONObject jsonObject = calcJsonObject(oldRow, newRow);
-        log.info("{}.fire() -   {}", CLASS_NAME, jsonObject);
+        JSONObject payload = calcJsonObject(oldRow, newRow);
+        EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
+        EventAuditQueue eventAuditQueue = getEventAuditQueue();
+        if (eventAuditQueue == null) {
+            log.error("EventAuditQueue is null!");
+        } else {
+            eventAuditQueue.put(item);
+        }
     }
 
     /**
@@ -98,6 +102,13 @@ public abstract class BaseTrigger implements Trigger {
     @Override
     public void remove() throws SQLException {
         log.info("{}.remove()", CLASS_NAME);
+    }
+
+    protected void logFire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
+        log.info("{}.logFire(action: {}, catalog:{}, schema:{}, name:{}, table:{})", CLASS_NAME, this.action, this.catalog, schemaName, triggerName, tableName);
+        log.info("{}.logFire() - old:{}, new:{}", CLASS_NAME, oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items");
+        JSONObject jsonObject = calcJsonObject(oldRow, newRow);
+        log.info("{}.logFire() -   {}", CLASS_NAME, jsonObject);
     }
 
     protected JSONObject calcJsonObject(Object[] oldRow, Object[] newRow) throws SQLException {

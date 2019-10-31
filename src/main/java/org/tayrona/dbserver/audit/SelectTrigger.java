@@ -36,8 +36,6 @@ public class SelectTrigger extends BaseTrigger {
      */
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        JSONObject payload = calcJsonObject(oldRow, newRow);
-        EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
-        queue.put(item);
+        logFire(conn, oldRow, newRow);
     }
 }
