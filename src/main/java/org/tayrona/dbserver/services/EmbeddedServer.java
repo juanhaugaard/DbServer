@@ -16,7 +16,6 @@ import java.sql.SQLException;
 @Service
 public class EmbeddedServer {
 
-    @Autowired
     private H2Configuration h2Config;
 
     private static Server server;
@@ -36,6 +35,11 @@ public class EmbeddedServer {
             log.info("EmbeddedServer stopping server");
             server.stop();
         }
+    }
+
+    @Autowired
+    public void setH2Config(H2Configuration h2Config) {
+        this.h2Config = h2Config;
     }
 }
 

@@ -2,15 +2,18 @@ package org.tayrona.dbserver.audit;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.sql.DataSource;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -18,19 +21,16 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Slf4j
 @Component
 public class EventAuditQueue implements Runnable {
-    @Value("${spring.datasource.username}")
-    private String username;
-    @Value("${spring.datasource.password}")
-    private String password;
-    @Autowired
-    private DataSource dataSource;
-    @Autowired
-    private TransactionIdFactory transactions;
-    private Connection conn;
+    private TransactionIdFactory transactionIdFactory;
+    private NamedParameterJdbcTemplate jdbcTemplate;
     private Thread thread;
     private Queue<EventQueueItem> queue = null;
     private boolean requestStop;
     private static EventAuditQueue instance;
+
+    private static String sql =
+            "MERGE INTO AUDIT.EVENTS(TDATE, TSEQ, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
+                    " VALUES(:tdate, :tseq, :tsquema, :ttable, :taction, :payload)";
 
     private EventAuditQueue() {
         queue = new ConcurrentLinkedQueue<>();
@@ -42,7 +42,6 @@ public class EventAuditQueue implements Runnable {
     public void setup() throws SQLException {
         log.debug("Queue setup");
         requestStop = false;
-        conn = dataSource.getConnection(username, password);
         thread = new Thread(this, this.getClass().getSimpleName());
         thread.setDaemon(true);
         thread.start();
@@ -105,20 +104,30 @@ public class EventAuditQueue implements Runnable {
     private void process(EventQueueItem item) {
         log.debug("Queue process");
         if (item != null) {
-            TransactionIdentifier id = transactions.get();
-            String payload = item.getPayload().toString();
-            String sql = "MERGE INTO AUDIT.EVENTS(TDATE, TSEQ, TSQUEMA, TTABLE, TACTION, PAYLOAD) VALUES(?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement stat = conn.prepareStatement(sql)) {
-                stat.setDate(1, id.getDate());
-                stat.setLong(2, id.getSeq());
-                stat.setString(3, item.getSchemaName());
-                stat.setString(4, item.getTableName());
-                stat.setString(5, item.getAction());
-                stat.setString(6, payload);
-                stat.execute();
-            } catch (SQLException e) {
+            try {
+                TransactionIdentifier id = transactionIdFactory.get();
+                Map<String, Object> paramMap = new HashMap<>();
+                paramMap.put("tdate", id.getDate());
+                paramMap.put("tseq", id.getSeq());
+                paramMap.put("tsquema", item.getSchemaName());
+                paramMap.put("ttable", item.getTableName());
+                paramMap.put("taction", item.getAction());
+                paramMap.put("payload", item.getPayload());
+                jdbcTemplate.update(sql, paramMap);
+            } catch (Exception e) {
                 log.error(e.getMessage(), e);
             }
         }
+    }
+
+    @Autowired
+    public void setTransactionIdFactory(TransactionIdFactory transactions) {
+        this.transactionIdFactory = transactions;
+    }
+
+    @Autowired
+    @Qualifier("NamedJdbcTemplate")
+    public void setJdbcTemplate(NamedParameterJdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
     }
 }
