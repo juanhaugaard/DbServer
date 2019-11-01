@@ -11,6 +11,7 @@ import javax.annotation.PostConstruct;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Calendar;
 import java.util.List;
 
 @Component
@@ -31,21 +32,38 @@ public class TransactionIdFactory {
             TranId lastTranId = result.get(0);
             synchronized (this) {
                 if (!today.after(lastTranId.getDate())) {
-                    today = lastTranId.getDate();
+                    today = makeToday(lastTranId.getDate());
                     seq = lastTranId.getSeq() + 1;
                 }
             }
         }
     }
 
+    private Date makeToday(Date target) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(target);
+        cal.clear(Calendar.MILLISECOND);
+        cal.clear(Calendar.MINUTE);
+        cal.clear(Calendar.HOUR_OF_DAY);
+        return new Date(cal.getTimeInMillis());
+    }
+
+    private Date makeToday() {
+        Calendar cal = Calendar.getInstance();
+        cal.clear(Calendar.MILLISECOND);
+        cal.clear(Calendar.MINUTE);
+        cal.clear(Calendar.HOUR_OF_DAY);
+        return new Date(cal.getTimeInMillis());
+    }
+
     private synchronized boolean checkForRollover() {
-        Date current = new Date(System.currentTimeMillis());
+        Date current = makeToday();
         return ((today == null) || current.after(today));
     }
 
     private synchronized void rollover() {
         seq = 0;
-        today = new Date(System.currentTimeMillis());
+        today = makeToday();
     }
 
     public synchronized TransactionIdentifier get() {
