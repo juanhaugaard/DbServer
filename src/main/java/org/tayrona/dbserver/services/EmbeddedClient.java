@@ -2,26 +2,27 @@ package org.tayrona.dbserver.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.sql.DataSource;
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 @Slf4j
 @Component
 public class EmbeddedClient implements Runnable {
-    @Value("${spring.datasource.username}")
-    private String username;
-    @Value("${spring.datasource.password}")
-    private String password;
-    @Autowired
-    private DataSource dataSource;
-    private Connection conn;
+    private static final String CLASS_NAME = EmbeddedClient.class.getSimpleName();
+
+    private Thread thread;
+
+    private JdbcTemplate jdbcTemplate;
+
+    public EmbeddedClient() {
+        log.debug("{} constructed", CLASS_NAME);
+    }
 
     private String[] sql = {
             "DROP TABLE TIMER IF EXISTS",
@@ -37,43 +38,57 @@ public class EmbeddedClient implements Runnable {
 
     @PostConstruct
     public void setup() throws SQLException {
-        conn = dataSource.getConnection(username, password);
-        Statement stat = conn.createStatement();
-        // stat.execute(sql[0]); // do not drop the table
-        stat.execute(sql[1]);
-        stat.execute(sql[4]);
-        stat.execute(sql[5]);
-        stat.execute(sql[6]);
-        stat.execute(sql[7]);
-        stat.execute(sql[8]);
-        log.info("Execute this a few times: SELECT TIME FROM TIMER");
-        log.info("To stop this application (and the server), run: DROP TABLE TIMER");
+        dbSetup();
+        threadSetup();
+        log.info("{}.setup() - Execute this a few times: SELECT TIME FROM TIMER", CLASS_NAME);
+        log.info("{}.setup() - To stop this application (and the server), run: DROP TABLE TIMER", CLASS_NAME);
+    }
+
+    private void threadSetup() {
         Thread thread = new Thread(this);
+        thread.setDaemon(true);
         thread.start();
+    }
+
+    private void dbSetup() throws SQLException {
+        // jdbcTemplate.execute(sql[0]); // do not drop the table
+        jdbcTemplate.execute(sql[1]);
+        jdbcTemplate.execute(sql[4]);
+        jdbcTemplate.execute(sql[5]);
+        jdbcTemplate.execute(sql[6]);
+        jdbcTemplate.execute(sql[7]);
+        jdbcTemplate.execute(sql[8]);
     }
 
     @PreDestroy
     public void shutdown() {
-        if (conn != null) {
-            try {
-                log.info("Client closing connection");
-                conn.close();
-            } catch (SQLException e) {
-                log.error("Error: {}", e.toString());
+        if (thread != null) {
+            thread.interrupt();
+        }
+    }
+    @Override
+    public void run() {
+        log.debug("{}.run() - start delay", CLASS_NAME);
+        try {
+            Thread.sleep(1000 * 60);
+        } catch (InterruptedException ex) {
+            log.error(ex.getMessage(), ex);
+            return;
+        }
+        log.debug("{}.run() - running", CLASS_NAME);
+        try {
+            while (true) {
+                jdbcTemplate.execute(sql[3]);
+                Thread.sleep(1);
             }
+        } catch (DataAccessException | InterruptedException e) {
+            log.error("{}.run() - Error: {}", CLASS_NAME, e.toString());
         }
     }
 
-    @Override
-    public void run() {
-        try (Statement stat = conn.createStatement()) {
-            while (true) {
-                // runs forever, except if you drop the table remotely
-                stat.execute(sql[3]);
-                Thread.sleep(1000);
-            }
-        } catch (SQLException | InterruptedException e) {
-            log.error("Error: {}", e.toString());
-        }
+    @Autowired
+    @Qualifier("JdbcTemplate")
+    public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
     }
 }

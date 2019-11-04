@@ -2,15 +2,15 @@ package org.tayrona.dbserver.audit;
 
 import lombok.Data;
 
-import java.sql.Date;
-
 @Data
 public class TransactionIdentifier {
-    private Date date;
+    private Long numOfDays;
     private Long seq;
 
-    public TransactionIdentifier(Date date, Long seq) {
-        this.date = date;
+    public TransactionIdentifier() { }
+
+    public TransactionIdentifier(Long numOfDays, Long seq) {
+        this.numOfDays = numOfDays;
         this.seq = seq;
     }
 }

@@ -1,28 +1,52 @@
 package org.tayrona.dbserver;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Predicates;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.h2.jdbcx.JdbcDataSource;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.web.client.RestTemplate;
 import org.tayrona.dbserver.config.H2Configuration;
+import springfox.documentation.builders.ParameterBuilder;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.schema.ModelRef;
+import springfox.documentation.service.ApiInfo;
+import springfox.documentation.service.Contact;
+import springfox.documentation.service.Parameter;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.Docket;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.sql.DataSource;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
+@EnableSwagger2
 @SpringBootApplication
 public class Application implements ApplicationContextAware {
 
     private static Environment environment;
 
     private static ApplicationContext applicationContext;
+
+    private ObjectMapper objectMapper;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -33,6 +57,19 @@ public class Application implements ApplicationContextAware {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setUrl(configuration.getClient().getUrl());
         return dataSource;
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        CloseableHttpClient httpClient = HttpClients.custom().setSSLHostnameVerifier(new NoopHostnameVerifier()).build();
+        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
+        requestFactory.setHttpClient(httpClient);
+        RestTemplate restTemplate = new RestTemplate(requestFactory);
+        MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
+        objectMapper.setDateFormat(new SimpleDateFormat(Constants.DEFAULT_DATE_FORMAT));
+        jsonConverter.setObjectMapper(objectMapper);
+        restTemplate.setMessageConverters(Collections.singletonList(jsonConverter));
+        return restTemplate;
     }
 
     private void reportProperties(Environment environment) {
@@ -48,7 +85,8 @@ public class Application implements ApplicationContextAware {
                     "spring.datasource.password",
                     "server.servlet.context-path",
                     "management.endpoints.web.exposure.include",
-                    "logging.level.root",
+                    "logging.level.ROOT",
+                    "logging.level.org.tayrona.dbserver",
                     "server.port",
                     "user.home",
                     "user.dir"
@@ -56,16 +94,32 @@ public class Application implements ApplicationContextAware {
             log.info("*** Start Properties Report ***");
             properties.stream()
                     .filter(name -> environment.getProperty(name) != null)
-                    .map(name -> {
-                        if ("jwt.sec.key".equalsIgnoreCase(name)) {
-                            return "jwt.sec.key: is present";
-                        } else {
-                            return String.format("%s: %s", name, environment.getProperty(name));
-                        }
-                    })
+                    .map(name -> String.format("%s: %s", name, environment.getProperty(name)))
                     .forEach(logMsg -> log.info("*** {}", logMsg));
             log.info("*** End Properties Report ***");
         }
+    }
+
+    @Bean
+    public Docket api() {
+        return new Docket(DocumentationType.SWAGGER_2)
+                .select()
+                .apis(RequestHandlerSelectors.basePackage("org.tayrona.dbserver.rest"))
+                .build()
+                .apiInfo(getApiInfo());
+    }
+
+    private ApiInfo getApiInfo() {
+        return new ApiInfo(
+                "DB Event sourcing on H2 Database",
+                "This page lists all the active endpoint details of Event sourcing on H2 Database",
+                "1.0.0",
+                "",
+                new Contact("Juan Haugaard", "github.com/juanhaugaard/DbServer", "juanhaugaard@gmail.com"),
+                "LICENSE",
+                "/",
+                Collections.emptyList()
+        );
     }
 
     /**
@@ -80,6 +134,11 @@ public class Application implements ApplicationContextAware {
         if (org.tayrona.dbserver.Application.applicationContext != null) {
             setEnvironment(org.tayrona.dbserver.Application.applicationContext.getEnvironment());
         }
+    }
+
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
     }
 
     public void setEnvironment(Environment environment) {
