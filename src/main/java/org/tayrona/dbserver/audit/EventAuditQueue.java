@@ -23,7 +23,7 @@ public class EventAuditQueue implements Runnable {
     private TransactionIdFactory transactionIdFactory;
     private NamedParameterJdbcTemplate jdbcTemplate;
     private Thread thread;
-    private boolean requestStop;
+    private volatile boolean requestStop;
 
     private static final String sql =
             "MERGE INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
@@ -40,7 +40,7 @@ public class EventAuditQueue implements Runnable {
         log.debug("{}.setup()", CLASS_NAME);
         requestStop = false;
         thread = new Thread(this, this.getClass().getSimpleName());
-        thread.setDaemon(true);
+//        thread.setDaemon(true);
         thread.start();
     }
 
