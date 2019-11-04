@@ -3,15 +3,11 @@ package org.tayrona.dbserver.audit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -21,26 +17,27 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Slf4j
 @Component
 public class EventAuditQueue implements Runnable {
+    private static final String CLASS_NAME = EventAuditQueue.class.getSimpleName();
+    private static EventAuditQueue instance;
+    private final Queue<EventQueueItem> queue;
     private TransactionIdFactory transactionIdFactory;
     private NamedParameterJdbcTemplate jdbcTemplate;
     private Thread thread;
-    private Queue<EventQueueItem> queue = null;
     private boolean requestStop;
-    private static EventAuditQueue instance;
 
-    private static String sql =
-            "MERGE INTO AUDIT.EVENTS(TDATE, TSEQ, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
-                    " VALUES(:tdate, :tseq, :tsquema, :ttable, :taction, :payload)";
+    private static final String sql =
+            "MERGE INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
+                    " VALUES(:tday, :tseq, :tcatalog, :tsquema, :ttable, :taction, :payload)";
 
     private EventAuditQueue() {
         queue = new ConcurrentLinkedQueue<>();
         instance = this;
-        log.debug("Queue constructed");
+        log.debug("{} - constructed", CLASS_NAME);
     }
 
     @PostConstruct
-    public void setup() throws SQLException {
-        log.debug("Queue setup");
+    public void setup() {
+        log.debug("{}.setup()", CLASS_NAME);
         requestStop = false;
         thread = new Thread(this, this.getClass().getSimpleName());
         thread.setDaemon(true);
@@ -49,19 +46,17 @@ public class EventAuditQueue implements Runnable {
 
     @PreDestroy
     public void shutdown() {
-        log.debug("Queue shutdown");
+        log.debug("{}.shutdown()", CLASS_NAME);
         requestStop = true;
         thread.interrupt();
     }
 
-    public boolean put(EventQueueItem item) {
-        log.debug("Queue put");
-        boolean ret;
+    void putItem(EventQueueItem item) {
+        log.debug("{}.putItem(item)", CLASS_NAME);
         synchronized (queue) {
-            ret = queue.add(item);
+            queue.add(item);
             queue.notifyAll();
         }
-        return ret;
     }
 
     /**
@@ -77,7 +72,14 @@ public class EventAuditQueue implements Runnable {
      */
     @Override
     public void run() {
-        log.debug("Queue run");
+        log.debug("{}.run() - start delay", CLASS_NAME);
+        try {
+            Thread.sleep(1000 * 30);
+        } catch (InterruptedException ex) {
+            log.error(ex.getMessage(), ex);
+            return;
+        }
+        log.debug("{}.run() - running", CLASS_NAME);
         EventQueueItem item;
         while (!requestStop) {
             try {
@@ -92,31 +94,35 @@ public class EventAuditQueue implements Runnable {
                     log.error(e.getMessage(), ex);
                 }
             } catch (Exception e) {
-                log.error(e.getMessage(), e);
+                log.error("{}.run() - {}", CLASS_NAME, e.getMessage(), e);
             }
         }
     }
 
-    public static EventAuditQueue get() {
+    static EventAuditQueue get() {
         return instance;
     }
 
     private void process(EventQueueItem item) {
-        log.debug("Queue process");
         if (item != null) {
+            String payload = item.getPayload().toString();
+            log.debug("{}.process({})", CLASS_NAME, payload);
             try {
                 TransactionIdentifier id = transactionIdFactory.get();
                 Map<String, Object> paramMap = new HashMap<>();
-                paramMap.put("tdate", id.getDate());
+                paramMap.put("tday", id.getNumOfDays());
                 paramMap.put("tseq", id.getSeq());
+                paramMap.put("tcatalog", item.getCatalogName());
                 paramMap.put("tsquema", item.getSchemaName());
                 paramMap.put("ttable", item.getTableName());
                 paramMap.put("taction", item.getAction());
-                paramMap.put("payload", item.getPayload());
+                paramMap.put("payload", payload);
                 jdbcTemplate.update(sql, paramMap);
             } catch (Exception e) {
-                log.error(e.getMessage(), e);
+                log.error("{}.process() - {}", CLASS_NAME, e.getMessage(), e);
             }
+        } else {
+            log.warn("{}.process(item) - item is null!", CLASS_NAME);
         }
     }
 

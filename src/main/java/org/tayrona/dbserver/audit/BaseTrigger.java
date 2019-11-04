@@ -18,8 +18,10 @@ public abstract class BaseTrigger implements Trigger {
     protected String schemaName, triggerName, tableName, catalog, action;
     protected boolean before;
     protected List<String> columns;
-    protected BaseTrigger() {
+
+    BaseTrigger() {
          CLASS_NAME = this.getClass().getSimpleName();
+         log.debug("{} constructed", CLASS_NAME);
     }
 
     /**
@@ -77,12 +79,12 @@ public abstract class BaseTrigger implements Trigger {
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
         JSONObject payload = calcJsonObject(oldRow, newRow);
-        EventQueueItem item = new EventQueueItem(schemaName, tableName, action, payload);
+        EventQueueItem item = new EventQueueItem(catalog, schemaName, tableName, action, payload);
         EventAuditQueue eventAuditQueue = getEventAuditQueue();
         if (eventAuditQueue == null) {
-            log.error("EventAuditQueue is null!");
+            log.warn("{}.fire(...) - EventAuditQueue is null!", CLASS_NAME);
         } else {
-            eventAuditQueue.put(item);
+            eventAuditQueue.putItem(item);
         }
     }
 
@@ -92,7 +94,7 @@ public abstract class BaseTrigger implements Trigger {
      * closing the database will continue.
      */
     @Override
-    public void close() throws SQLException {
+    public void close() {
         log.info("{}.close()", CLASS_NAME);
     }
 
@@ -100,7 +102,7 @@ public abstract class BaseTrigger implements Trigger {
      * This method is called when the trigger is dropped.
      */
     @Override
-    public void remove() throws SQLException {
+    public void remove() {
         log.info("{}.remove()", CLASS_NAME);
     }
 
@@ -115,13 +117,17 @@ public abstract class BaseTrigger implements Trigger {
         JSONObject ret = new JSONObject();
         try {
             if (oldRow != null) {
+                JSONObject oldRowJson = new JSONObject();
+                ret.put("oldRow", oldRowJson);
                 for (int i = 0; i < oldRow.length; i++) {
-                    ret.put(this.columns.get(i), oldRow[i]);
+                    oldRowJson.put(this.columns.get(i), oldRow[i]);
                 }
             }
             if (newRow != null) {
+                JSONObject newRowJson = new JSONObject();
+                ret.put("newRow", newRowJson);
                 for (int i = 0; i < newRow.length; i++) {
-                    ret.put(this.columns.get(i), newRow[i]);
+                    newRowJson.put(this.columns.get(i), newRow[i]);
                 }
             }
         } catch (JSONException e) {
@@ -160,35 +166,7 @@ public abstract class BaseTrigger implements Trigger {
         return String.join(" | ", actions);
     }
 
-    public String getSchemaName() {
-        return schemaName;
-    }
-
-    public String getTriggerName() {
-        return triggerName;
-    }
-
-    public String getTableName() {
-        return tableName;
-    }
-
-    public String getCatalog() {
-        return catalog;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public boolean isBefore() {
-        return before;
-    }
-
-    public List<String> getColumns() {
-        return columns;
-    }
-
-    public EventAuditQueue getEventAuditQueue() {
+    private EventAuditQueue getEventAuditQueue() {
         if (BaseTrigger.eventAuditQueue == null) {
             BaseTrigger.eventAuditQueue = org.tayrona.dbserver.audit.EventAuditQueue.get();
         }

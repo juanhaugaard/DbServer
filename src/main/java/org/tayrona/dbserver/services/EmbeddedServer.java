@@ -16,6 +16,8 @@ import java.sql.SQLException;
 @Service
 public class EmbeddedServer {
 
+    private static final String CLASS_NAME = EmbeddedServer.class.getSimpleName();
+
     private H2Configuration h2Config;
 
     private static Server server;
@@ -23,7 +25,7 @@ public class EmbeddedServer {
     @PostConstruct
     public void initialize() throws SQLException {
         // start the server, allows to access the database remotely
-        log.info("Using server options: '{}'", h2Config.getServer().getOptions());
+        log.info("{}.initialize() - Using server options: '{}'", CLASS_NAME, h2Config.getServer().getOptions());
         String[] args = h2Config.getServer().getOptions().split(" ");
         server = new Server();
         server.runTool(args);
@@ -32,7 +34,7 @@ public class EmbeddedServer {
     @PreDestroy
     public void shutdown() {
         if (server != null) {
-            log.info("EmbeddedServer stopping server");
+            log.info("{}.shutdown() - stopping server", CLASS_NAME);
             server.stop();
         }
     }

@@ -14,9 +14,15 @@ import java.sql.SQLException;
 @Slf4j
 @Component
 public class EmbeddedClient implements Runnable {
+    private static final String CLASS_NAME = EmbeddedClient.class.getSimpleName();
+
     private Thread thread;
 
     private JdbcTemplate jdbcTemplate;
+
+    public EmbeddedClient() {
+        log.debug("{} constructed", CLASS_NAME);
+    }
 
     private String[] sql = {
             "DROP TABLE TIMER IF EXISTS",
@@ -34,8 +40,8 @@ public class EmbeddedClient implements Runnable {
     public void setup() throws SQLException {
         dbSetup();
         threadSetup();
-        log.info("Execute this a few times: SELECT TIME FROM TIMER");
-        log.info("To stop this application (and the server), run: DROP TABLE TIMER");
+        log.info("{}.setup() - Execute this a few times: SELECT TIME FROM TIMER", CLASS_NAME);
+        log.info("{}.setup() - To stop this application (and the server), run: DROP TABLE TIMER", CLASS_NAME);
     }
 
     private void threadSetup() {
@@ -62,13 +68,21 @@ public class EmbeddedClient implements Runnable {
     }
     @Override
     public void run() {
+        log.debug("{}.run() - start delay", CLASS_NAME);
+        try {
+            Thread.sleep(1000 * 60);
+        } catch (InterruptedException ex) {
+            log.error(ex.getMessage(), ex);
+            return;
+        }
+        log.debug("{}.run() - running", CLASS_NAME);
         try {
             while (true) {
                 jdbcTemplate.execute(sql[3]);
-                Thread.sleep(1000);
+                Thread.sleep(1);
             }
         } catch (DataAccessException | InterruptedException e) {
-            log.error("Error: {}", e.toString());
+            log.error("{}.run() - Error: {}", CLASS_NAME, e.toString());
         }
     }
 

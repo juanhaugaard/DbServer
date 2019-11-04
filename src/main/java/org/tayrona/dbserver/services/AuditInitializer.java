@@ -14,6 +14,7 @@ import java.sql.SQLException;
 @Slf4j
 @Component
 public class AuditInitializer {
+    private static final String CLASS_NAME = AuditInitializer.class.getSimpleName();
 
     private H2Configuration h2Config;
 
@@ -21,9 +22,11 @@ public class AuditInitializer {
 
     @PostConstruct
     public void setup() throws SQLException {
+        log.debug("{}.setup()", CLASS_NAME);
         if (h2Config != null && h2Config.getClient() != null) {
             ClientConfig clientConfig = h2Config.getClient();
             for (String sql : clientConfig.getInitSql()) {
+                log.debug("{}.setup() - executing: {}", CLASS_NAME, sql);
                 jdbcTemplate.execute(sql);
             }
         }

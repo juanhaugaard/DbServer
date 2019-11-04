@@ -1,6 +1,6 @@
 package org.tayrona.dbserver.audit;
 
-import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,78 +8,65 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Calendar;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
+@Slf4j
 @Component
 public class TransactionIdFactory {
-    private static long seq;
-    private static Date today;
+    private static final String CLASS_NAME = TransactionIdFactory.class.getSimpleName();
+    private static ZoneId zoneId = ZoneId.of("UTC");
+    private static long seq = 0;
+    private static ZonedDateTime today = ZonedDateTime.now(zoneId);
+    private static long numOfDays = today.toLocalDate().toEpochDay();
     private JdbcTemplate jdbcTemplate;
 
     public TransactionIdFactory() {
-        rollover();
+        log.debug("{} constructed", CLASS_NAME);
     }
 
     @PostConstruct
     public void initialize() {
-        String sql = "SELECT TDATE, TSEQ FROM AUDIT.EVENTS ORDER BY TDATE DESC, TSEQ DESC LIMIT 1";
-        List<TranId> result = jdbcTemplate.query(sql, new TranIdRowMapper());
+        log.debug("{}.initialize()", CLASS_NAME);
+        String sql = "SELECT TDAY, TSEQ FROM AUDIT.EVENTS ORDER BY TDAY DESC, TSEQ DESC LIMIT 1";
+        List<TransactionIdentifier> result = jdbcTemplate.query(sql, new TransactionIdentifierRowMapper());
         if ((result != null) && !result.isEmpty()) {
-            TranId lastTranId = result.get(0);
+            TransactionIdentifier lastTranId = result.get(0);
             synchronized (this) {
-                if (!today.after(lastTranId.getDate())) {
-                    today = makeToday(lastTranId.getDate());
+                if (numOfDays <= lastTranId.getNumOfDays()) {
+                    numOfDays = lastTranId.getNumOfDays();
                     seq = lastTranId.getSeq() + 1;
+                    log.debug("{}.initialize() - continue transaction ID sequence, numOfDays:{}", CLASS_NAME, numOfDays);
+                } else {
+                    seq = 0L;
+                    log.debug("{}.initialize() - rollover transaction ID sequence, numOfDays:{}", CLASS_NAME, numOfDays);
                 }
             }
         }
     }
 
-    private Date makeToday(Date target) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(target);
-        cal.clear(Calendar.MILLISECOND);
-        cal.clear(Calendar.MINUTE);
-        cal.clear(Calendar.HOUR_OF_DAY);
-        return new Date(cal.getTimeInMillis());
+    private Long calcNumOfDays() {
+        return ZonedDateTime.now(zoneId).toLocalDate().toEpochDay();
     }
 
-    private Date makeToday() {
-        Calendar cal = Calendar.getInstance();
-        cal.clear(Calendar.MILLISECOND);
-        cal.clear(Calendar.MINUTE);
-        cal.clear(Calendar.HOUR_OF_DAY);
-        return new Date(cal.getTimeInMillis());
-    }
-
-    private synchronized boolean checkForRollover() {
-        Date current = makeToday();
-        return ((today == null) || current.after(today));
-    }
-
-    private synchronized void rollover() {
-        seq = 0;
-        today = makeToday();
+    private synchronized void conditionalRollover() {
+        long currentNumberOfDays = calcNumOfDays();
+        if (currentNumberOfDays > numOfDays) {
+            seq = 0;
+            numOfDays = currentNumberOfDays;
+            log.debug("{}.conditionalRollover() - rollover transaction ID sequence, numOfDays:{}", CLASS_NAME, numOfDays);
+        }
     }
 
     public synchronized TransactionIdentifier get() {
-        if (checkForRollover()) {
-            rollover();
-        }
-        return new TransactionIdentifier(today, seq++);
+        conditionalRollover();
+        return new TransactionIdentifier(numOfDays, seq++);
     }
 
-    @Data
-    private class TranId {
-        private Date date;
-        private long seq;
-    }
-
-    private class TranIdRowMapper implements RowMapper<TranId> {
+    private class TransactionIdentifierRowMapper implements RowMapper<TransactionIdentifier> {
         /**
          * Implementations must implement this method to map each row of data
          * in the ResultSet. This method should not call {@code next()} on
@@ -92,9 +79,9 @@ public class TransactionIdFactory {
          *                      column values (that is, there's no need to catch SQLException)
          */
         @Override
-        public TranId mapRow(ResultSet rs, int rowNum) throws SQLException {
-            TranId ret = new TranId();
-            ret.setDate(rs.getDate("TDATE"));
+        public TransactionIdentifier mapRow(ResultSet rs, int rowNum) throws SQLException {
+            TransactionIdentifier ret = new TransactionIdentifier();
+            ret.setNumOfDays(rs.getLong("TDAY"));
             ret.setSeq(rs.getLong("TSEQ"));
             return ret;
         }
