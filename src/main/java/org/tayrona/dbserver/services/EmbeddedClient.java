@@ -46,7 +46,6 @@ public class EmbeddedClient implements Runnable {
 
     private void threadSetup() {
         Thread thread = new Thread(this);
-//        thread.setDaemon(true);
         thread.start();
     }
 

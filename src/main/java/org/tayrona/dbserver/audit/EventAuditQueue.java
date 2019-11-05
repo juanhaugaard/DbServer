@@ -23,10 +23,9 @@ public class EventAuditQueue implements Runnable {
     private TransactionIdFactory transactionIdFactory;
     private NamedParameterJdbcTemplate jdbcTemplate;
     private Thread thread;
-    private volatile boolean requestStop;
 
     private static final String sql =
-            "MERGE INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
+            "INSERT INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
                     " VALUES(:tday, :tseq, :tcatalog, :tsquema, :ttable, :taction, :payload)";
 
     private EventAuditQueue() {
@@ -38,16 +37,13 @@ public class EventAuditQueue implements Runnable {
     @PostConstruct
     public void setup() {
         log.debug("{}.setup()", CLASS_NAME);
-        requestStop = false;
         thread = new Thread(this, this.getClass().getSimpleName());
-//        thread.setDaemon(true);
         thread.start();
     }
 
     @PreDestroy
     public void shutdown() {
         log.debug("{}.shutdown()", CLASS_NAME);
-        requestStop = true;
         thread.interrupt();
     }
 
@@ -81,7 +77,7 @@ public class EventAuditQueue implements Runnable {
         }
         log.debug("{}.run() - running", CLASS_NAME);
         EventQueueItem item;
-        while (!requestStop) {
+        while (!Thread.interrupted()) {
             try {
                 item = queue.remove();
                 process(item);
@@ -92,7 +88,6 @@ public class EventAuditQueue implements Runnable {
                     }
                 } catch (InterruptedException ex) {
                     log.error(e.getMessage(), ex);
-                    requestStop = true;
                 }
             } catch (Exception e) {
                 log.error("{}.run() - {}", CLASS_NAME, e.getMessage(), e);
@@ -107,7 +102,7 @@ public class EventAuditQueue implements Runnable {
     private void process(EventQueueItem item) {
         if (item != null) {
             String payload = item.getPayload().toString();
-            if (!requestStop) {
+            if (!Thread.interrupted()) {
                 log.debug("{}.process({})", CLASS_NAME, payload);
                 try {
                     TransactionIdentifier id = transactionIdFactory.get();
