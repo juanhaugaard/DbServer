@@ -77,7 +77,7 @@ public class EmbeddedClient implements Runnable {
         }
         log.debug("{}.run() - running", CLASS_NAME);
         try {
-            while (true) {
+            while (!Thread.interrupted()) {
                 jdbcTemplate.execute(sql[3]);
                 Thread.sleep(1);
             }

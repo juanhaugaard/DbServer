@@ -92,6 +92,7 @@ public class EventAuditQueue implements Runnable {
                     }
                 } catch (InterruptedException ex) {
                     log.error(e.getMessage(), ex);
+                    requestStop = true;
                 }
             } catch (Exception e) {
                 log.error("{}.run() - {}", CLASS_NAME, e.getMessage(), e);
@@ -106,20 +107,24 @@ public class EventAuditQueue implements Runnable {
     private void process(EventQueueItem item) {
         if (item != null) {
             String payload = item.getPayload().toString();
-            log.debug("{}.process({})", CLASS_NAME, payload);
-            try {
-                TransactionIdentifier id = transactionIdFactory.get();
-                Map<String, Object> paramMap = new HashMap<>();
-                paramMap.put("tday", id.getNumOfDays());
-                paramMap.put("tseq", id.getSeq());
-                paramMap.put("tcatalog", item.getCatalogName());
-                paramMap.put("tsquema", item.getSchemaName());
-                paramMap.put("ttable", item.getTableName());
-                paramMap.put("taction", item.getAction());
-                paramMap.put("payload", payload);
-                jdbcTemplate.update(sql, paramMap);
-            } catch (Exception e) {
-                log.error("{}.process() - {}", CLASS_NAME, e.getMessage(), e);
+            if (!requestStop) {
+                log.debug("{}.process({})", CLASS_NAME, payload);
+                try {
+                    TransactionIdentifier id = transactionIdFactory.get();
+                    Map<String, Object> paramMap = new HashMap<>();
+                    paramMap.put("tday", id.getNumOfDays());
+                    paramMap.put("tseq", id.getSeq());
+                    paramMap.put("tcatalog", item.getCatalogName());
+                    paramMap.put("tsquema", item.getSchemaName());
+                    paramMap.put("ttable", item.getTableName());
+                    paramMap.put("taction", item.getAction());
+                    paramMap.put("payload", payload);
+                    jdbcTemplate.update(sql, paramMap);
+                } catch (Exception e) {
+                    log.error("{}.process() - {}", CLASS_NAME, e.getMessage(), e);
+                }
+            } else {
+                log.warn("{}.process(item) - request stop signaled!", CLASS_NAME);
             }
         } else {
             log.warn("{}.process(item) - item is null!", CLASS_NAME);
