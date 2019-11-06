@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.tayrona.dbserver.config.ClientConfig;
+import org.tayrona.dbserver.config.AuditConfig;
 import org.tayrona.dbserver.config.H2Configuration;
 
 import javax.annotation.PostConstruct;
@@ -23,9 +23,9 @@ public class AuditInitializer {
     @PostConstruct
     public void setup() throws SQLException {
         log.debug("{}.setup()", CLASS_NAME);
-        if (h2Config != null && h2Config.getClient() != null) {
-            ClientConfig clientConfig = h2Config.getClient();
-            for (String sql : clientConfig.getInitSql()) {
+        if (h2Config != null && h2Config.getAudit() != null) {
+            AuditConfig auditConfig = h2Config.getAudit();
+            for (String sql : auditConfig.getInitSql()) {
                 log.debug("{}.setup() - executing: {}", CLASS_NAME, sql);
                 jdbcTemplate.execute(sql);
             }

@@ -14,5 +14,8 @@ public class H2Configuration {
     private ServerConfig server;
 
     @NotNull
+    private AuditConfig audit;
+
+    @NotNull
     private ClientConfig client;
 }

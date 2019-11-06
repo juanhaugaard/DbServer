@@ -29,7 +29,7 @@ public class DataSourceConfiguration {
 
     @Bean(name="DataSource")
     public DataSource getDataSource() {
-        return makeDataSource( h2Configuration.getClient().getUrl(), "HikariCP");
+        return makeDataSource( h2Configuration.getAudit().getUrl(), "HikariCP");
     }
 
     @Bean(name="NamedJdbcTemplate")

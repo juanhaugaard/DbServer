@@ -1,7 +1,6 @@
 package org.tayrona.dbserver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Predicates;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -20,19 +19,15 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 import org.tayrona.dbserver.config.H2Configuration;
-import springfox.documentation.builders.ParameterBuilder;
 import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.schema.ModelRef;
 import springfox.documentation.service.ApiInfo;
 import springfox.documentation.service.Contact;
-import springfox.documentation.service.Parameter;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.sql.DataSource;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -55,7 +50,7 @@ public class Application implements ApplicationContextAware {
     @Bean
     public DataSource getDataSource(H2Configuration configuration) {
         JdbcDataSource dataSource = new JdbcDataSource();
-        dataSource.setUrl(configuration.getClient().getUrl());
+        dataSource.setUrl(configuration.getAudit().getUrl());
         return dataSource;
     }
 
@@ -130,9 +125,9 @@ public class Application implements ApplicationContextAware {
      */
     @Override
     public void setApplicationContext(ApplicationContext context) throws BeansException {
-        org.tayrona.dbserver.Application.applicationContext = context;
-        if (org.tayrona.dbserver.Application.applicationContext != null) {
-            setEnvironment(org.tayrona.dbserver.Application.applicationContext.getEnvironment());
+        applicationContext = context;
+        if (applicationContext != null) {
+            setEnvironment(applicationContext.getEnvironment());
         }
     }
 
@@ -146,10 +141,10 @@ public class Application implements ApplicationContextAware {
     }
 
     public static ApplicationContext getApplicationContext() {
-        return org.tayrona.dbserver.Application.applicationContext;
+        return applicationContext;
     }
 
     public static Environment getEnvironment() {
-        return org.tayrona.dbserver.Application.environment;
+        return environment;
     }
 }
