@@ -47,11 +47,6 @@ public class EmbeddedClient implements Runnable {
         jdbcTemplate.execute(sql.get(1));
         jdbcTemplate.execute(sql.get(4));
         jdbcTemplate.execute(sql.get(5));
-        jdbcTemplate.execute(sql.get(6));
-        jdbcTemplate.execute(sql.get(7));
-        jdbcTemplate.execute(sql.get(8));
-        jdbcTemplate.execute(sql.get(9));
-        jdbcTemplate.execute(sql.get(10));
     }
 
     @PreDestroy
