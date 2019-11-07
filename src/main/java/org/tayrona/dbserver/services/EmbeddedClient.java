@@ -37,8 +37,10 @@ public class EmbeddedClient implements Runnable {
     }
 
     private void threadSetup() {
-        Thread thread = new Thread(this);
-//        thread.start();
+        if (h2Config.getClient().getInterval() >= 0) {
+            thread = new Thread(this);
+            thread.start();
+        }
     }
 
     private void dbSetup() throws SQLException {
@@ -53,15 +55,13 @@ public class EmbeddedClient implements Runnable {
     public void shutdown() {
         if (thread != null) {
             thread.interrupt();
+            thread = null;
         }
     }
+
     @Override
     public void run() {
-        log.debug("{}.run() - start delay", CLASS_NAME);
-        try {
-            Thread.sleep(1000 * 60);
-        } catch (InterruptedException ex) {
-            log.error(ex.getMessage(), ex);
+        if (!initialDelay()) {
             return;
         }
         log.debug("{}.run() - running", CLASS_NAME);
@@ -69,11 +69,38 @@ public class EmbeddedClient implements Runnable {
             String sql = h2Config.getClient().getInitSql().get(3);
             while (!Thread.interrupted()) {
                 jdbcTemplate.execute(sql);
-                Thread.sleep(1);
+                interval();
             }
         } catch (DataAccessException | InterruptedException e) {
             log.error("{}.run() - Error: {}", CLASS_NAME, e.toString());
         }
+    }
+
+    private void interval() throws InterruptedException {
+        if (h2Config.getClient().getInterval() == 0) {
+            Thread.yield();
+        } else {
+            Thread.sleep(h2Config.getClient().getInterval());
+        }
+    }
+
+    private boolean initialDelay() {
+        log.debug("{}.initialDelay() - start delay", CLASS_NAME);
+        long delay = h2Config.getClient().getInitialDelay();
+        if (delay < 0) {
+            return false;
+        }
+        try {
+            if (delay > 0) {
+                Thread.sleep(delay);
+            } else {
+                Thread.yield();
+            }
+        } catch (InterruptedException ex) {
+            log.error(ex.getMessage(), ex);
+            return false;
+        }
+        return true;
     }
 
     @Autowired

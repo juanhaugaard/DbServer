@@ -2,33 +2,48 @@ package org.tayrona.dbserver.audit;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.tayrona.dbserver.Application;
+import org.tayrona.dbserver.config.H2Configuration;
 
-public interface LogFunction {
-    String[] triggersCreate = {
-            "CREATE TRIGGER IF NOT EXISTS %s_INSERT_AUDIT AFTER INSERT ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.InsertTrigger\"",
-            "CREATE TRIGGER IF NOT EXISTS %s_UPDATE_AUDIT AFTER UPDATE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.UpdateTrigger\"",
-            "CREATE TRIGGER IF NOT EXISTS %s_DELETE_AUDIT AFTER DELETE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.DeleteTrigger\"",
-            "CREATE TRIGGER IF NOT EXISTS %s_SELECT_AUDIT BEFORE SELECT ON PUBLIC.TIMER CALL \"org.tayrona.dbserver.audit.SelectTrigger\"",
-            "CREATE TRIGGER IF NOT EXISTS %s_ROLLBACK_INSERT_AUDIT AFTER ROLLBACK, INSERT ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.RollbackTrigger\"",
-            "CREATE TRIGGER IF NOT EXISTS %s_ROLLBACK_UPDATE_AUDIT AFTER ROLLBACK, UPDATE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.RollbackTrigger\"",
-            "CREATE TRIGGER IF NOT EXISTS %s_ROLLBACK_DELETE_AUDIT AFTER ROLLBACK, DELETE ON PUBLIC.TIMER FOR EACH ROW CALL \"org.tayrona.dbserver.audit.RollbackTrigger\""
-    };
-    String[] triggersDrop = {
-            "DROP TRIGGER IF EXISTS %s_INSERT_AUDIT",
-            "DROP TRIGGER IF EXISTS %s_UPDATE_AUDIT",
-            "DROP TRIGGER IF EXISTS %s_DELETE_AUDIT",
-            "DROP TRIGGER IF EXISTS %s_SELECT_AUDIT",
-            "DROP TRIGGER IF EXISTS %s_ROLLBACK_INSERT_AUDIT",
-            "DROP TRIGGER IF EXISTS %s_ROLLBACK_UPDATE_AUDIT",
-            "DROP TRIGGER IF EXISTS %s_ROLLBACK_DELETE_AUDIT"
-    };
+import java.util.List;
+
+abstract class LogFunction {
+
+    private static H2Configuration h2Config;
+
+    private static final Object lock = new Object();
+
+    static List<String> triggersCreate() {
+        return h2Config().getAudit().getTriggerCreate();
+    }
+
+    static List<String> triggersDrop() {
+        return h2Config().getAudit().getTriggerDrop();
+    }
+
+    static List<String> initAudit() {
+        return h2Config().getAudit().getInitSql();
+    }
+
+    static H2Configuration h2Config() {
+        if (h2Config == null) {
+            synchronized (lock) {
+                if (h2Config == null) {
+                    h2Config = (H2Configuration)Application.getApplicationContext().getBean("H2Configuration");
+                }
+            }
+        }
+        return h2Config;
+    }
 
     static void executeSqlStatement(final String fmt, final String tablename) {
-        String sql = String.format(fmt, tablename);
+        executeSqlStatement(String.format(fmt, tablename));
+    }
+
+    static void executeSqlStatement(final String sql) {
         jdbcTemplate().execute(sql);
     }
 
-    static JdbcTemplate jdbcTemplate() {
+    protected static JdbcTemplate jdbcTemplate() {
         return (JdbcTemplate) Application.getApplicationContext().getBean("JdbcTemplate");
     }
 }
