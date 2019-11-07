@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.tayrona.dbserver.config.H2Configuration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -22,6 +23,7 @@ public class EventAuditQueue implements Runnable {
     private final Queue<EventQueueItem> queue;
     private TransactionIdFactory transactionIdFactory;
     private NamedParameterJdbcTemplate jdbcTemplate;
+    private H2Configuration h2Config;
     private Thread thread;
 
     private static final String sql =
@@ -68,15 +70,14 @@ public class EventAuditQueue implements Runnable {
      */
     @Override
     public void run() {
-        log.debug("{}.run() - start delay", CLASS_NAME);
-        try {
-            Thread.sleep(1000 * 30);
-        } catch (InterruptedException ex) {
-            log.error(ex.getMessage(), ex);
+        log.debug("{}.run()", CLASS_NAME);
+        if (!initialDelay()) {
             return;
         }
         log.debug("{}.run() - running", CLASS_NAME);
         EventQueueItem item;
+        long latency = h2Config.getAudit().getQueueLatency();
+        latency = (latency < 0) ? 0 : latency;
         while (!Thread.interrupted()) {
             try {
                 item = queue.remove();
@@ -84,10 +85,10 @@ public class EventAuditQueue implements Runnable {
             } catch (NoSuchElementException e) {
                 try {
                     synchronized (queue) {
-                        queue.wait(1000);
+                        queue.wait(latency);
                     }
                 } catch (InterruptedException ex) {
-                    log.error(e.getMessage(), ex);
+                    log.warn("{} interrupted", CLASS_NAME);
                 }
             } catch (Exception e) {
                 log.error("{}.run() - {}", CLASS_NAME, e.getMessage(), e);
@@ -126,6 +127,25 @@ public class EventAuditQueue implements Runnable {
         }
     }
 
+    private boolean initialDelay() {
+        log.debug("{}.initialDelay() - start delay", CLASS_NAME);
+        long delay = h2Config.getAudit().getInitialDelay();
+        if (delay < 0) {
+            return false;
+        }
+        try {
+            if (delay > 0) {
+                Thread.sleep(delay);
+            } else {
+                Thread.yield();
+            }
+        } catch (InterruptedException ex) {
+            log.warn("{}.initialDelay() interrupted", CLASS_NAME);
+            return false;
+        }
+        return true;
+    }
+
     @Autowired
     public void setTransactionIdFactory(TransactionIdFactory transactions) {
         this.transactionIdFactory = transactions;
@@ -135,5 +155,10 @@ public class EventAuditQueue implements Runnable {
     @Qualifier("NamedJdbcTemplate")
     public void setJdbcTemplate(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Autowired
+    public void setH2Config(H2Configuration h2Config) {
+        this.h2Config = h2Config;
     }
 }

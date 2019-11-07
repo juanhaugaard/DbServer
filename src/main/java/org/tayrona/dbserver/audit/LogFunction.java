@@ -28,7 +28,7 @@ abstract class LogFunction {
         if (h2Config == null) {
             synchronized (lock) {
                 if (h2Config == null) {
-                    h2Config = (H2Configuration)Application.getApplicationContext().getBean("H2Configuration");
+                    h2Config = (H2Configuration)Application.getApplicationContext().getBean("h2Configuration");
                 }
             }
         }

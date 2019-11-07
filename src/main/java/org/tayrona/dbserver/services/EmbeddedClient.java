@@ -97,7 +97,7 @@ public class EmbeddedClient implements Runnable {
                 Thread.yield();
             }
         } catch (InterruptedException ex) {
-            log.error(ex.getMessage(), ex);
+            log.warn("{}.initialDelay() interrupted", CLASS_NAME);
             return false;
         }
         return true;
