@@ -14,7 +14,7 @@ import java.sql.SQLException;
 @Data
 @Slf4j
 @Service
-public class EmbeddedServer {
+public class EmbeddedServer implements Runnable{
 
     private static final String CLASS_NAME = EmbeddedServer.class.getSimpleName();
 
@@ -34,14 +34,51 @@ public class EmbeddedServer {
     @PreDestroy
     public void shutdown() {
         if (server != null) {
-            log.info("{}.shutdown() - stopping server", CLASS_NAME);
-            server.stop();
+            log.info("{}.shutdown() - scheduling server shutdown", CLASS_NAME);
+            new Thread(this).start();
+        }
+    }
+
+    private void delay(long millisec) {
+        if (millisec < 0){
+            millisec = 0;
+        }
+        log.debug("{}.delay({})", CLASS_NAME, millisec);
+        try {
+            if (millisec > 0) {
+                Thread.sleep(millisec);
+            } else {
+                Thread.yield();
+            }
+        } catch (InterruptedException e) {
+            log.warn("{}.delay() interrupted", CLASS_NAME);
         }
     }
 
     @Autowired
     public void setH2Config(H2Configuration h2Config) {
         this.h2Config = h2Config;
+    }
+
+    /**
+     * When an object implementing interface <code>Runnable</code> is used
+     * to create a thread, starting the thread causes the object's
+     * <code>run</code> method to be called in that separately executing
+     * thread.
+     * <p>
+     * The general contract of the method <code>run</code> is that it may
+     * take any action whatsoever.
+     *
+     * @see Thread#run()
+     */
+    @Override
+    public void run() {
+        if (server != null) {
+            delay(h2Config.getServer().getShutdownDelay());
+            log.info("{}.scheduled server shutdown", CLASS_NAME);
+            server.stop();
+            server = null;
+        }
     }
 }
 

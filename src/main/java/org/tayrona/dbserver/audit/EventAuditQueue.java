@@ -45,8 +45,16 @@ public class EventAuditQueue implements Runnable {
 
     @PreDestroy
     public void shutdown() {
-        log.debug("{}.shutdown()", CLASS_NAME);
-        thread.interrupt();
+        log.debug("{}.shutdown() - scheduling shutdown", CLASS_NAME);
+        new Thread(this::scheduledShutdown).start();
+    }
+
+    private void scheduledShutdown() {
+        if (thread != null) {
+            delay(h2Config.getAudit().getShutdownDelay());
+            log.debug("{}.scheduledShutdown()", CLASS_NAME);
+            thread.interrupt();
+        }
     }
 
     void putItem(EventQueueItem item) {
@@ -102,9 +110,8 @@ public class EventAuditQueue implements Runnable {
 
     private void process(EventQueueItem item) {
         if (item != null) {
-            String payload = item.getPayload().toString();
             if (!Thread.interrupted()) {
-                log.debug("{}.process({})", CLASS_NAME, payload);
+                log.debug("{}.process({})", CLASS_NAME, item);
                 try {
                     TransactionIdentifier id = transactionIdFactory.get();
                     Map<String, Object> paramMap = new HashMap<>();
@@ -114,7 +121,7 @@ public class EventAuditQueue implements Runnable {
                     paramMap.put("tsquema", item.getSchemaName());
                     paramMap.put("ttable", item.getTableName());
                     paramMap.put("taction", item.getAction());
-                    paramMap.put("payload", payload);
+                    paramMap.put("payload", item.getPayload().toString());
                     jdbcTemplate.update(sql, paramMap);
                 } catch (Exception e) {
                     log.error("{}.process() - {}", CLASS_NAME, e.getMessage(), e);
@@ -133,14 +140,22 @@ public class EventAuditQueue implements Runnable {
         if (delay < 0) {
             return false;
         }
+        return delay(delay);
+    }
+
+    private boolean delay(long millisec) {
+        if (millisec < 0){
+            millisec = 0;
+        }
+        log.debug("{}.delay({})", CLASS_NAME, millisec);
         try {
-            if (delay > 0) {
-                Thread.sleep(delay);
+            if (millisec > 0) {
+                Thread.sleep(millisec);
             } else {
                 Thread.yield();
             }
-        } catch (InterruptedException ex) {
-            log.warn("{}.initialDelay() interrupted", CLASS_NAME);
+        } catch (InterruptedException e) {
+            log.warn("{}.delay() interrupted", CLASS_NAME);
             return false;
         }
         return true;

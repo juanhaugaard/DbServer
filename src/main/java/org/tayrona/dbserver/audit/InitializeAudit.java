@@ -10,7 +10,7 @@ public class InitializeAudit extends LogFunction {
         log.debug("{}.execute()", CLASS_NAME);
         int count = 0;
         for (String sql : initAudit()) {
-            log.debug("{}.execute() - executing: {}", CLASS_NAME, sql);
+            log.debug("{}.execute() - {}", CLASS_NAME, sql);
             executeSqlStatement(sql);
             count += 1;
         }

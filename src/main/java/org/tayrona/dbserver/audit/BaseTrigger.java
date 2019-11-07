@@ -84,6 +84,7 @@ public abstract class BaseTrigger implements Trigger {
         if (eventAuditQueue == null) {
             log.warn("{}.fire(...) - EventAuditQueue is null!", CLASS_NAME);
         } else {
+            log.debug("{}.fire(...) - queuing item: {}", CLASS_NAME, item);
             eventAuditQueue.putItem(item);
         }
     }
@@ -107,10 +108,11 @@ public abstract class BaseTrigger implements Trigger {
     }
 
     protected void logFire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        log.info("{}.logFire(action: {}, catalog:{}, schema:{}, name:{}, table:{})", CLASS_NAME, this.action, this.catalog, schemaName, triggerName, tableName);
-        log.info("{}.logFire() - old:{}, new:{}", CLASS_NAME, oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items");
         JSONObject jsonObject = calcJsonObject(oldRow, newRow);
-        log.info("{}.logFire() -   {}", CLASS_NAME, jsonObject);
+        log.info("{}.logFire(action: {}, catalog:{}, schema:{}, name:{}, table:{}, old:{}, new:{}, JSON: {})",
+                CLASS_NAME, this.action, this.catalog, schemaName, triggerName, tableName,
+                oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items",
+                jsonObject);
     }
 
     protected JSONObject calcJsonObject(Object[] oldRow, Object[] newRow) throws SQLException {

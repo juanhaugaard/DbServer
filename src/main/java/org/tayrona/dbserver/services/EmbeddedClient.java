@@ -48,12 +48,12 @@ public class EmbeddedClient implements Runnable {
         // jdbcTemplate.execute(sql.get(0)); // do not drop the table
         jdbcTemplate.execute(sql.get(1));
         jdbcTemplate.execute(sql.get(4));
-        jdbcTemplate.execute(sql.get(5));
     }
 
     @PreDestroy
     public void shutdown() {
         if (thread != null) {
+            log.debug("{}.shutdown() - client shutdown", CLASS_NAME);
             thread.interrupt();
             thread = null;
         }

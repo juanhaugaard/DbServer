@@ -21,7 +21,7 @@ public class EventQueueItem {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("EventQueueItem{");
+        final StringBuilder sb = new StringBuilder("{");
         sb.append("catalogName='").append(catalogName).append('\'');
         sb.append(", schemaName='").append(schemaName).append('\'');
         sb.append(", tableName='").append(tableName).append('\'');
