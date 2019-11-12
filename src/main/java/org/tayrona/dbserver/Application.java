@@ -103,10 +103,10 @@ public class Application implements ApplicationContextAware {
     }
 
     @Bean
-    public Docket api() {
+    public Docket swaggerApi() {
         return new Docket(DocumentationType.SWAGGER_2)
                 .select()
-                .apis(RequestHandlerSelectors.basePackage("org.tayrona.dbserver.rest"))
+                .apis(RequestHandlerSelectors.basePackage("org.tayrona.dbserver.controllers"))
                 .build()
                 .apiInfo(getApiInfo());
     }
