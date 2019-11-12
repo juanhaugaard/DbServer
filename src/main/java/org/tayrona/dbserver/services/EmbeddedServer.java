@@ -14,7 +14,7 @@ import java.sql.SQLException;
 @Data
 @Slf4j
 @Service
-public class EmbeddedServer implements Runnable{
+public class EmbeddedServer{
 
     private static final String CLASS_NAME = EmbeddedServer.class.getSimpleName();
 
@@ -34,8 +34,11 @@ public class EmbeddedServer implements Runnable{
     @PreDestroy
     public void shutdown() {
         if (server != null) {
-            log.info("{}.shutdown() - scheduling server shutdown", CLASS_NAME);
-            new Thread(this).start();
+            log.info("{}.shutdown", CLASS_NAME);
+            delay(h2Config.getServer().getShutdownDelay());
+            log.info("{}.shutdown server shutdown Now", CLASS_NAME);
+            server.stop();
+            server = null;
         }
     }
 
@@ -58,27 +61,6 @@ public class EmbeddedServer implements Runnable{
     @Autowired
     public void setH2Config(H2Configuration h2Config) {
         this.h2Config = h2Config;
-    }
-
-    /**
-     * When an object implementing interface <code>Runnable</code> is used
-     * to create a thread, starting the thread causes the object's
-     * <code>run</code> method to be called in that separately executing
-     * thread.
-     * <p>
-     * The general contract of the method <code>run</code> is that it may
-     * take any action whatsoever.
-     *
-     * @see Thread#run()
-     */
-    @Override
-    public void run() {
-        if (server != null) {
-            delay(h2Config.getServer().getShutdownDelay());
-            log.info("{}.scheduled server shutdown", CLASS_NAME);
-            server.stop();
-            server = null;
-        }
     }
 }
 

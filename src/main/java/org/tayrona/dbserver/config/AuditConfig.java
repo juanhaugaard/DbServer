@@ -9,9 +9,8 @@ import java.util.List;
 public class AuditConfig {
     @NotBlank
     private String url;
-    private long initialDelay = 1000;
-    private long queueLatency = 300;
-    private long shutdownDelay = 500;
+    private long queueLatency = 500;
+    private long shutdownDelay = 0;
     private List<String> initSql;
     private List<String> triggerCreate;
     private List<String> triggerDrop;

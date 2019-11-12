@@ -3,6 +3,7 @@ package org.tayrona.dbserver.services;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import java.util.List;
 
 @Slf4j
 @Component
+@DependsOn("eventAuditQueue")
 public class EmbeddedClient implements Runnable {
     private static final String CLASS_NAME = EmbeddedClient.class.getSimpleName();
 
@@ -38,7 +40,7 @@ public class EmbeddedClient implements Runnable {
 
     private void threadSetup() {
         if (h2Config.getClient().getInterval() >= 0) {
-            thread = new Thread(this);
+            thread = new Thread(this, CLASS_NAME);
             thread.start();
         }
     }
@@ -53,7 +55,7 @@ public class EmbeddedClient implements Runnable {
     @PreDestroy
     public void shutdown() {
         if (thread != null) {
-            log.debug("{}.shutdown() - client shutdown", CLASS_NAME);
+            log.debug("{}.shutdown() - client shutdown now", CLASS_NAME);
             thread.interrupt();
             thread = null;
         }
@@ -71,8 +73,10 @@ public class EmbeddedClient implements Runnable {
                 jdbcTemplate.execute(sql);
                 interval();
             }
-        } catch (DataAccessException | InterruptedException e) {
-            log.error("{}.run() - Error: {}", CLASS_NAME, e.toString());
+        } catch (DataAccessException e1) {
+            log.error("{}.run() - Error: {}", CLASS_NAME, e1.toString());
+        } catch (InterruptedException e2) {
+            log.info("{}.run() - info: {}", CLASS_NAME, e2.toString());
         }
     }
 

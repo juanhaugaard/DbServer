@@ -170,7 +170,7 @@ public abstract class BaseTrigger implements Trigger {
 
     private EventAuditQueue getEventAuditQueue() {
         if (BaseTrigger.eventAuditQueue == null) {
-            BaseTrigger.eventAuditQueue = org.tayrona.dbserver.audit.EventAuditQueue.get();
+            BaseTrigger.eventAuditQueue = EventAuditQueue.get();
         }
         return BaseTrigger.eventAuditQueue;
     }

@@ -1,6 +1,7 @@
 package org.tayrona.dbserver.services;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import org.tayrona.dbserver.audit.InitializeAudit;
 
@@ -9,6 +10,7 @@ import java.sql.SQLException;
 
 @Slf4j
 @Component
+@DependsOn("embeddedServer")
 public class AuditInitializer {
     private static final String CLASS_NAME = AuditInitializer.class.getSimpleName();
 

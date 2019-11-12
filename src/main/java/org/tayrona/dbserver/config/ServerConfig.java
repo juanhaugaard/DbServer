@@ -8,5 +8,5 @@ import javax.validation.constraints.NotBlank;
 public class ServerConfig {
     @NotBlank
     private String options;
-    private long shutdownDelay = 1000;
+    private long shutdownDelay = 500;
 }

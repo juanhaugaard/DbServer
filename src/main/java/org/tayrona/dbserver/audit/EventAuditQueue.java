@@ -3,6 +3,7 @@ package org.tayrona.dbserver.audit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.tayrona.dbserver.config.H2Configuration;
@@ -17,6 +18,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
 @Component
+@DependsOn("auditInitializer")
 public class EventAuditQueue implements Runnable {
     private static final String CLASS_NAME = EventAuditQueue.class.getSimpleName();
     private static EventAuditQueue instance;
@@ -39,26 +41,23 @@ public class EventAuditQueue implements Runnable {
     @PostConstruct
     public void setup() {
         log.debug("{}.setup()", CLASS_NAME);
-        thread = new Thread(this, this.getClass().getSimpleName());
+        thread = new Thread(this, CLASS_NAME);
         thread.start();
     }
 
     @PreDestroy
     public void shutdown() {
-        log.debug("{}.shutdown() - scheduling shutdown", CLASS_NAME);
-        new Thread(this::scheduledShutdown).start();
-    }
-
-    private void scheduledShutdown() {
+        log.debug("{}.shutdown()", CLASS_NAME);
         if (thread != null) {
-            delay(h2Config.getAudit().getShutdownDelay());
-            log.debug("{}.scheduledShutdown()", CLASS_NAME);
-            thread.interrupt();
+            if (delay(h2Config.getAudit().getShutdownDelay())) {
+                log.debug("{}.shutdown() - Now", CLASS_NAME);
+                thread.interrupt();
+            }
         }
     }
 
     void putItem(EventQueueItem item) {
-        log.debug("{}.putItem(item)", CLASS_NAME);
+        log.debug("{}.putItem({}})", CLASS_NAME, item);
         synchronized (queue) {
             queue.add(item);
             queue.notifyAll();
@@ -78,15 +77,11 @@ public class EventAuditQueue implements Runnable {
      */
     @Override
     public void run() {
-        log.debug("{}.run()", CLASS_NAME);
-        if (!initialDelay()) {
-            return;
-        }
         log.debug("{}.run() - running", CLASS_NAME);
         EventQueueItem item;
-        long latency = h2Config.getAudit().getQueueLatency();
-        latency = (latency < 0) ? 0 : latency;
         while (!Thread.interrupted()) {
+            long latency = h2Config.getAudit().getQueueLatency();
+            latency = (latency < 0) ? 0 : latency;
             try {
                 item = queue.remove();
                 process(item);
@@ -132,15 +127,6 @@ public class EventAuditQueue implements Runnable {
         } else {
             log.warn("{}.process(item) - item is null!", CLASS_NAME);
         }
-    }
-
-    private boolean initialDelay() {
-        log.debug("{}.initialDelay() - start delay", CLASS_NAME);
-        long delay = h2Config.getAudit().getInitialDelay();
-        if (delay < 0) {
-            return false;
-        }
-        return delay(delay);
     }
 
     private boolean delay(long millisec) {

@@ -1,9 +1,12 @@
 package org.tayrona.dbserver.audit;
 
 import lombok.extern.slf4j.Slf4j;
+import org.tayrona.dbserver.BaseFunction;
+
+import static org.tayrona.dbserver.audit.LogFunction.initAudit;
 
 @Slf4j
-public class InitializeAudit extends LogFunction {
+public class InitializeAudit extends BaseFunction {
     private static final String CLASS_NAME = InitializeAudit.class.getSimpleName();
 
     public static int execute() {

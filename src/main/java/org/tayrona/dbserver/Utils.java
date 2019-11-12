@@ -12,20 +12,18 @@ import java.io.Reader;
 public abstract class Utils {
     private static final Logger LOG = LoggerFactory.getLogger(Utils.class.getName());
 
-    private static final String RESOURCE_PREFIX = "classpath:";
-
     public static String loadText(final String name) throws IOException {
         try (Reader reader = new InputStreamReader(ResourceUtils.getURL(name).openStream())) {
             return FileCopyUtils.copyToString(reader);
         }
     }
     public static String loadTextResource(final String name) throws IOException {
-        return Utils.loadText(RESOURCE_PREFIX + name);
+        return Utils.loadText(Constants.RESOURCE_PREFIX + name);
     }
 
     public static String loadTextOrResource(final String name) throws IOException {
         try {
-            return Utils.loadText(RESOURCE_PREFIX + name);
+            return Utils.loadText(Constants.RESOURCE_PREFIX + name);
         } catch (IOException e) {
             return Utils.loadTextResource(name);
         }
