@@ -47,9 +47,9 @@ public class EmbeddedClient implements Runnable {
 
     private void dbSetup() throws SQLException {
         List<String> sql = h2Config.getClient().getInitSql();
-        // jdbcTemplate.execute(sql.get(0)); // do not drop the table
-        jdbcTemplate.execute(sql.get(1));
-        jdbcTemplate.execute(sql.get(4));
+        for (int i=1; i<sql.size(); i++) {
+            jdbcTemplate.execute(sql.get(i));
+        }
     }
 
     @PreDestroy
@@ -68,7 +68,7 @@ public class EmbeddedClient implements Runnable {
         }
         log.debug("{}.run() - running", CLASS_NAME);
         try {
-            String sql = h2Config.getClient().getInitSql().get(3);
+            String sql = h2Config.getClient().getInitSql().get(0);
             while (!Thread.interrupted()) {
                 jdbcTemplate.execute(sql);
                 interval();

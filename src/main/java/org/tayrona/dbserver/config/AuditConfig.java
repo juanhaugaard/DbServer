@@ -7,6 +7,7 @@ import java.util.List;
 
 @Data
 public class AuditConfig {
+    private String catalog;
     @NotBlank
     private String url;
     private long queueLatency = 500;

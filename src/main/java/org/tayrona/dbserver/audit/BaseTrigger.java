@@ -78,12 +78,13 @@ public abstract class BaseTrigger implements Trigger {
      */
     @Override
     public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        JSONObject payload = calcJsonObject(oldRow, newRow);
-        EventQueueItem item = new EventQueueItem(catalog, schemaName, tableName, action, payload);
         EventAuditQueue eventAuditQueue = getEventAuditQueue();
         if (eventAuditQueue == null) {
             log.warn("{}.fire(...) - EventAuditQueue is null!", CLASS_NAME);
         } else {
+            String userName = conn.getMetaData().getUserName();
+            JSONObject payload = calcJsonObject(oldRow, newRow);
+            EventQueueItem item = new EventQueueItem(catalog, schemaName, tableName, action, userName, payload);
             log.debug("{}.fire(...) - queuing item: {}", CLASS_NAME, item);
             eventAuditQueue.putItem(item);
         }

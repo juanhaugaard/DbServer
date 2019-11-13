@@ -29,8 +29,8 @@ public class EventAuditQueue implements Runnable {
     private Thread thread;
 
     private static final String sql =
-            "INSERT INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, PAYLOAD)" +
-                    " VALUES(:tday, :tseq, :tcatalog, :tsquema, :ttable, :taction, :payload)";
+            "INSERT INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, TUSER, PAYLOAD)" +
+                    " VALUES(:tday, :tseq, :tcatalog, :tsquema, :ttable, :taction, :tuser, :payload)";
 
     private EventAuditQueue() {
         queue = new ConcurrentLinkedQueue<>();
@@ -116,6 +116,7 @@ public class EventAuditQueue implements Runnable {
                     paramMap.put("tsquema", item.getSchemaName());
                     paramMap.put("ttable", item.getTableName());
                     paramMap.put("taction", item.getAction());
+                    paramMap.put("tuser", item.getUserName());
                     paramMap.put("payload", item.getPayload().toString());
                     jdbcTemplate.update(sql, paramMap);
                 } catch (Exception e) {
