@@ -2,7 +2,6 @@ package org.tayrona.dbserver.audit;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 import java.sql.Connection;
 import java.sql.SQLException;

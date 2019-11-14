@@ -1,7 +1,6 @@
 package org.tayrona.dbserver.audit;
 
 import lombok.Data;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 @Data
 public class EventQueueItem {
@@ -10,9 +9,9 @@ public class EventQueueItem {
     private String tableName;
     private String action;
     private String userName;
-    private JSONObject payload;
+    private String payload;
 
-    public EventQueueItem(String catalogName, String schemaName, String tableName, String action, String userName, JSONObject payload) {
+    public EventQueueItem(String catalogName, String schemaName, String tableName, String action, String userName, String payload) {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;

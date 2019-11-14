@@ -1,6 +1,7 @@
 package org.tayrona.dbserver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -18,6 +19,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
+import org.tayrona.dbserver.audit.BaseTrigger;
 import org.tayrona.dbserver.config.H2Configuration;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.service.ApiInfo;
@@ -27,6 +29,7 @@ import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.sql.DataSource;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
@@ -61,7 +64,6 @@ public class Application implements ApplicationContextAware {
         requestFactory.setHttpClient(httpClient);
         RestTemplate restTemplate = new RestTemplate(requestFactory);
         MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
-        objectMapper.setDateFormat(new SimpleDateFormat(Constants.DEFAULT_DATE_FORMAT));
         jsonConverter.setObjectMapper(objectMapper);
         restTemplate.setMessageConverters(Collections.singletonList(jsonConverter));
         return restTemplate;
@@ -140,7 +142,9 @@ public class Application implements ApplicationContextAware {
 
     @Autowired
     public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        DateFormat fmt = new SimpleDateFormat(Constants.DEFAULT_DATE_FORMAT);
+        this.objectMapper = objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).setDateFormat(fmt);
+        BaseTrigger.setObjectMapper(this.objectMapper);
     }
 
     public void setEnvironment(Environment environment) {

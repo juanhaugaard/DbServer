@@ -1,13 +1,18 @@
 package org.tayrona.dbserver.audit;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.h2.api.Trigger;
-import org.springframework.boot.configurationprocessor.json.JSONException;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
+import org.tayrona.dbserver.Constants;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,10 +23,11 @@ public abstract class BaseTrigger implements Trigger {
     protected String schemaName, triggerName, tableName, catalog, action;
     protected boolean before;
     protected List<String> columns;
+    private static ObjectMapper objectMapper;
 
     BaseTrigger() {
-         CLASS_NAME = this.getClass().getSimpleName();
-         log.debug("{} constructed", CLASS_NAME);
+        CLASS_NAME = this.getClass().getSimpleName();
+        log.debug("{} constructed", CLASS_NAME);
     }
 
     /**
@@ -82,11 +88,17 @@ public abstract class BaseTrigger implements Trigger {
         if (eventAuditQueue == null) {
             log.warn("{}.fire(...) - EventAuditQueue is null!", CLASS_NAME);
         } else {
-            String userName = conn.getMetaData().getUserName();
-            JSONObject payload = calcJsonObject(oldRow, newRow);
-            EventQueueItem item = new EventQueueItem(catalog, schemaName, tableName, action, userName, payload);
-            log.debug("{}.fire(...) - queuing item: {}", CLASS_NAME, item);
-            eventAuditQueue.putItem(item);
+            try {
+                String userName = conn.getMetaData().getUserName();
+                ObjectNode payload = calcJsonObject(oldRow, newRow);
+                String jsonPayload = getObjectMapper().writeValueAsString(payload);
+                EventQueueItem item = new EventQueueItem(catalog, schemaName, tableName, action, userName, jsonPayload);
+                log.debug("{}.fire(...) - queuing item: {}", CLASS_NAME, item);
+                eventAuditQueue.putItem(item);
+            } catch (JsonProcessingException e) {
+                log.error("{}", e.getMessage());
+                throw new SQLException(e.getMessage(), e);
+            }
         }
     }
 
@@ -109,32 +121,32 @@ public abstract class BaseTrigger implements Trigger {
     }
 
     protected void logFire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        JSONObject jsonObject = calcJsonObject(oldRow, newRow);
-        log.info("{}.logFire(action: {}, catalog:{}, schema:{}, name:{}, table:{}, old:{}, new:{}, JSON: {})",
-                CLASS_NAME, this.action, this.catalog, schemaName, triggerName, tableName,
-                oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items",
-                jsonObject);
+        ObjectNode payload = calcJsonObject(oldRow, newRow);
+        try {
+            String jsonPayload = getObjectMapper().writeValueAsString(payload);
+            log.info("{}.logFire(action: {}, catalog:{}, schema:{}, name:{}, table:{}, old:{}, new:{}, JSON: {})",
+                    CLASS_NAME, this.action, this.catalog, schemaName, triggerName, tableName,
+                    oldRow == null ? "null" : oldRow.length + " items", newRow == null ? "null" : newRow.length + " items",
+                    jsonPayload);
+        } catch (JsonProcessingException e) {
+            log.error("{}", e.getMessage());
+            throw new SQLException(e.getMessage(), e);
+        }
     }
 
-    protected JSONObject calcJsonObject(Object[] oldRow, Object[] newRow) throws SQLException {
-        JSONObject ret = new JSONObject();
-        try {
-            if (oldRow != null) {
-                JSONObject oldRowJson = new JSONObject();
-                ret.put("oldRow", oldRowJson);
-                for (int i = 0; i < oldRow.length; i++) {
-                    oldRowJson.put(this.columns.get(i), oldRow[i]);
-                }
+    protected ObjectNode calcJsonObject(Object[] oldRow, Object[] newRow) {
+        ObjectNode ret = getObjectMapper().getNodeFactory().objectNode();
+        if (oldRow != null) {
+            ObjectNode oldRowJson = ret.putObject("oldRow");
+            for (int i = 0; i < oldRow.length; i++) {
+                oldRowJson.putPOJO(this.columns.get(i), oldRow[i]);
             }
-            if (newRow != null) {
-                JSONObject newRowJson = new JSONObject();
-                ret.put("newRow", newRowJson);
-                for (int i = 0; i < newRow.length; i++) {
-                    newRowJson.put(this.columns.get(i), newRow[i]);
-                }
+        }
+        if (newRow != null) {
+            ObjectNode newRowJson = ret.putObject("newRow");
+            for (int i = 0; i < newRow.length; i++) {
+                newRowJson.putPOJO(this.columns.get(i), newRow[i]);
             }
-        } catch (JSONException e) {
-            throw new SQLException(e.getMessage(), e);
         }
         return ret;
     }
@@ -174,5 +186,17 @@ public abstract class BaseTrigger implements Trigger {
             BaseTrigger.eventAuditQueue = EventAuditQueue.get();
         }
         return BaseTrigger.eventAuditQueue;
+    }
+
+    public static ObjectMapper getObjectMapper() {
+        if (objectMapper == null) {
+            DateFormat fmt = new SimpleDateFormat(Constants.DEFAULT_DATE_FORMAT);
+            objectMapper = new ObjectMapper().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).setDateFormat(fmt);
+        }
+        return objectMapper;
+    }
+
+    public static void setObjectMapper(ObjectMapper objectMapper) {
+        BaseTrigger.objectMapper = objectMapper;
     }
 }
