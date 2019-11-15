@@ -6,7 +6,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.h2.api.Trigger;
+import org.springframework.jdbc.support.JdbcUtils;
 import org.tayrona.dbserver.Constants;
+import org.tayrona.dbserver.services.dto.TimerDto;
+import org.tayrona.dbserver.services.mappers.TimerMapper;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -148,6 +151,16 @@ public abstract class BaseTrigger implements Trigger {
                 newRowJson.putPOJO(this.columns.get(i), newRow[i]);
             }
         }
+        try {
+            String json = getObjectMapper().writeValueAsString(ret);
+            log.debug("JSON: {}", json);
+            org.tayrona.dbserver.services.model.Timer timer = getObjectMapper().readValue(json, org.tayrona.dbserver.services.model.Timer.class);
+            log.debug("Timer: {}", timer);
+            TimerDto timerDto = TimerMapper.INSTANCE.toDto(timer);
+            log.debug("TimerDto: {}", timerDto);
+        } catch (JsonProcessingException e) {
+            log.error("{}- {}", e.getClass().getSimpleName(), e.getMessage());
+        }
         return ret;
     }
 
@@ -158,7 +171,9 @@ public abstract class BaseTrigger implements Trigger {
             dbSchema.next();
         }
         do {
-            ret.add(dbSchema.getString(4));
+            String dbName = dbSchema.getString(4);
+            String beanName = JdbcUtils.convertUnderscoreNameToPropertyName(dbName);
+            ret.add(beanName);
             dbSchema.next();
         } while (!dbSchema.isAfterLast());
         return ret;
