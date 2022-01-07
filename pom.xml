@@ -16,7 +16,7 @@
 
     <properties>
         <spring-cloud.version>Hoxton.M3</spring-cloud.version>
-        <h2database.version>1.4.200</h2database.version>
+        <h2database.version>2.0.206</h2database.version>
         <swagger2.version>2.9.2</swagger2.version>
         <mapstruct.version>1.2.0.Final</mapstruct.version>
     </properties>
