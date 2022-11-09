@@ -1,50 +1,33 @@
 package org.tayrona.dbserver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.h2.jdbcx.JdbcDataSource;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
-import org.tayrona.dbserver.audit.BaseTrigger;
 import org.tayrona.dbserver.config.H2Configuration;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.service.Contact;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.Docket;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.sql.DataSource;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-@EnableSwagger2
 @SpringBootApplication
 public class Application implements ApplicationContextAware {
 
     private static Environment environment;
 
     private static ApplicationContext applicationContext;
-
-    private ObjectMapper objectMapper;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -58,14 +41,10 @@ public class Application implements ApplicationContextAware {
     }
 
     @Bean
-    public RestTemplate restTemplate() {
-        CloseableHttpClient httpClient = HttpClients.custom().setSSLHostnameVerifier(new NoopHostnameVerifier()).build();
-        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
-        requestFactory.setHttpClient(httpClient);
-        RestTemplate restTemplate = new RestTemplate(requestFactory);
+    public RestTemplate restTemplate(RestTemplateBuilder builder, ObjectMapper objectMapper) {
         MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
         jsonConverter.setObjectMapper(objectMapper);
-        restTemplate.setMessageConverters(Collections.singletonList(jsonConverter));
+        RestTemplate restTemplate = builder.additionalMessageConverters(Collections.singletonList(jsonConverter)).build();
         return restTemplate;
     }
 
@@ -104,28 +83,6 @@ public class Application implements ApplicationContextAware {
         }
     }
 
-    @Bean
-    public Docket swaggerApi() {
-        return new Docket(DocumentationType.SWAGGER_2)
-                .select()
-                .apis(RequestHandlerSelectors.basePackage("org.tayrona.dbserver.controllers"))
-                .build()
-                .apiInfo(getApiInfo());
-    }
-
-    private ApiInfo getApiInfo() {
-        return new ApiInfo(
-                "DB Event sourcing on H2 Database",
-                "This page lists all the active endpoint details of Event sourcing on H2 Database",
-                "1.0.0",
-                "",
-                new Contact("Juan Haugaard", "github.com/juanhaugaard/DbServer", "juanhaugaard@gmail.com"),
-                "LICENSE",
-                "/",
-                Collections.emptyList()
-        );
-    }
-
     /**
      * Set the ApplicationContext that this object runs in.
      * Normally this call will be used to initialize the object.
@@ -138,13 +95,6 @@ public class Application implements ApplicationContextAware {
         if (applicationContext != null) {
             setEnvironment(applicationContext.getEnvironment());
         }
-    }
-
-    @Autowired
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        DateFormat fmt = new SimpleDateFormat(Constants.DEFAULT_DATE_FORMAT);
-        this.objectMapper = objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).setDateFormat(fmt);
-        BaseTrigger.setObjectMapper(this.objectMapper);
     }
 
     public void setEnvironment(Environment environment) {
