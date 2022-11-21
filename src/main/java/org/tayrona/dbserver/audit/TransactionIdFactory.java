@@ -18,10 +18,9 @@ import java.util.List;
 @Component
 public class TransactionIdFactory {
     private static final String CLASS_NAME = TransactionIdFactory.class.getSimpleName();
-    private static ZoneId zoneId = ZoneId.of("UTC");
+    private static final ZoneId zoneId = ZoneId.of("UTC");
     private static long seq = 0;
-    private static ZonedDateTime today = ZonedDateTime.now(zoneId);
-    private static long numOfDays = today.toLocalDate().toEpochDay();
+    private static long numOfDays = ZonedDateTime.now(zoneId).toLocalDate().toEpochDay();
     private JdbcTemplate jdbcTemplate;
 
     public TransactionIdFactory() {
@@ -33,7 +32,7 @@ public class TransactionIdFactory {
         log.debug("{}.initialize()", CLASS_NAME);
         String sql = "SELECT TDAY, TSEQ FROM AUDIT.EVENTS ORDER BY TDAY DESC, TSEQ DESC LIMIT 1";
         List<TransactionIdentifier> result = jdbcTemplate.query(sql, new TransactionIdentifierRowMapper());
-        if ((result != null) && !result.isEmpty()) {
+        if (!result.isEmpty()) {
             TransactionIdentifier lastTranId = result.get(0);
             synchronized (this) {
                 if (numOfDays <= lastTranId.getNumOfDays()) {
@@ -66,7 +65,7 @@ public class TransactionIdFactory {
         return new TransactionIdentifier(numOfDays, seq++);
     }
 
-    private class TransactionIdentifierRowMapper implements RowMapper<TransactionIdentifier> {
+    private static class TransactionIdentifierRowMapper implements RowMapper<TransactionIdentifier> {
         /**
          * Implementations must implement this method to map each row of data
          * in the ResultSet. This method should not call {@code next()} on

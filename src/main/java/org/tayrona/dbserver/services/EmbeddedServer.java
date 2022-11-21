@@ -27,7 +27,9 @@ public class EmbeddedServer{
         // start the server, allows to access the database remotely
         log.info("{}.initialize() - Using server options: '{}'", CLASS_NAME, h2Config.getServer().getOptions());
         String[] args = h2Config.getServer().getOptions().split(" ");
-        server = new Server();
+        if (null == server) {
+            server = new Server();
+        }
         server.runTool(args);
     }
 
@@ -42,14 +44,14 @@ public class EmbeddedServer{
         }
     }
 
-    private void delay(long millisec) {
-        if (millisec < 0){
-            millisec = 0;
+    private void delay(long millisecond) {
+        if (millisecond < 0){
+            millisecond = 0;
         }
-        log.debug("{}.delay({})", CLASS_NAME, millisec);
+        log.debug("{}.delay({})", CLASS_NAME, millisecond);
         try {
-            if (millisec > 0) {
-                Thread.sleep(millisec);
+            if (millisecond > 0) {
+                Thread.sleep(millisecond);
             } else {
                 Thread.yield();
             }

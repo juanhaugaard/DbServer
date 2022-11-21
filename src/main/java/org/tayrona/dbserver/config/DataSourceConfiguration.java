@@ -22,10 +22,10 @@ public class DataSourceConfiguration {
     private String password;
 
     @Value("${spring.datasource.minimumPoolSize:2}")
-    private Integer minimumPoolsize;
+    private Integer minimumPoolSize;
 
     @Value("${spring.datasource.maximumPoolSize:10}")
-    private Integer maximumPoolsize;
+    private Integer maximumPoolSize;
 
     @Bean(name="DataSource")
     public DataSource getDataSource() {
@@ -45,7 +45,7 @@ public class DataSourceConfiguration {
         hikariConfig.setUsername(userName);
         hikariConfig.setPassword(password);
 
-        hikariConfig.setMaximumPoolSize(maximumPoolsize);
+        hikariConfig.setMaximumPoolSize(maximumPoolSize);
         hikariConfig.setConnectionTestQuery("SELECT 1");
         hikariConfig.setPoolName(poolName);
 

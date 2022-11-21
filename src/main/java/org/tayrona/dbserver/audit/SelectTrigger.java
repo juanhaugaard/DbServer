@@ -26,7 +26,7 @@ public class SelectTrigger extends BaseTrigger {
      * The trigger itself may change the data in the newRow array.
      * </p>
      *
-     * @param conn   a connection to the database
+     * @param connection   a connection to the database
      * @param oldRow the old row, or null if no old row is available (for
      *               INSERT)
      * @param newRow the new row, or null if no new row is available (for
@@ -34,7 +34,7 @@ public class SelectTrigger extends BaseTrigger {
      * @throws SQLException if the operation must be undone
      */
     @Override
-    public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        logFire(conn, oldRow, newRow);
+    public void fire(Connection connection, Object[] oldRow, Object[] newRow) throws SQLException {
+        logFire(oldRow, newRow);
     }
 }

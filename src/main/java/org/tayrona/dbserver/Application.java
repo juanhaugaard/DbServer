@@ -44,8 +44,7 @@ public class Application implements ApplicationContextAware {
     public RestTemplate restTemplate(RestTemplateBuilder builder, ObjectMapper objectMapper) {
         MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
         jsonConverter.setObjectMapper(objectMapper);
-        RestTemplate restTemplate = builder.additionalMessageConverters(Collections.singletonList(jsonConverter)).build();
-        return restTemplate;
+        return builder.additionalMessageConverters(Collections.singletonList(jsonConverter)).build();
     }
 
     private void reportProperties(Environment environment) {
@@ -92,7 +91,7 @@ public class Application implements ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext context) throws BeansException {
         applicationContext = context;
-        if (applicationContext != null) {
+        if (null != applicationContext) {
             setEnvironment(applicationContext.getEnvironment());
         }
     }

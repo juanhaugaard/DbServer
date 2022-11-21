@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 import org.tayrona.dbserver.audit.InitializeAudit;
 
 import javax.annotation.PostConstruct;
-import java.sql.SQLException;
 
 @Slf4j
 @Component
@@ -15,8 +14,9 @@ public class AuditInitializer {
     private static final String CLASS_NAME = AuditInitializer.class.getSimpleName();
 
     @PostConstruct
-    public void setup() throws SQLException {
+    public void setup() {
         log.debug("{}.setup()", CLASS_NAME);
-        InitializeAudit.execute();
+        int statementCount = InitializeAudit.execute();
+        log.debug("{}.setUp() executed {} statements", CLASS_NAME, statementCount);
     }
 }

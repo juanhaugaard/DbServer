@@ -28,7 +28,7 @@ public class EventAuditQueue implements Runnable {
     private H2Configuration h2Config;
     private Thread thread;
 
-    private static final String sql =
+    private static final String SQL =
             "INSERT INTO AUDIT.EVENTS(TDAY, TSEQ, TCATALOG, TSQUEMA, TTABLE, TACTION, TUSER, PAYLOAD)" +
                     " VALUES(:tday, :tseq, :tcatalog, :tsquema, :ttable, :taction, :tuser, :payload)";
 
@@ -48,11 +48,9 @@ public class EventAuditQueue implements Runnable {
     @PreDestroy
     public void shutdown() {
         log.debug("{}.shutdown()", CLASS_NAME);
-        if (thread != null) {
-            if (delay(h2Config.getAudit().getShutdownDelay())) {
-                log.debug("{}.shutdown() - Now", CLASS_NAME);
-                thread.interrupt();
-            }
+        if ((thread != null) && delay(h2Config.getAudit().getShutdownDelay())) {
+            log.debug("{}.shutdown() - Now", CLASS_NAME);
+            thread.interrupt();
         }
     }
 
@@ -92,6 +90,7 @@ public class EventAuditQueue implements Runnable {
                     }
                 } catch (InterruptedException ex) {
                     log.warn("{} interrupted", CLASS_NAME);
+                    Thread.currentThread().interrupt();
                 }
             } catch (Exception e) {
                 log.error("{}.run() - {}", CLASS_NAME, e.getMessage(), e);
@@ -117,8 +116,8 @@ public class EventAuditQueue implements Runnable {
                     paramMap.put("ttable", item.getTableName());
                     paramMap.put("taction", item.getAction());
                     paramMap.put("tuser", item.getUserName());
-                    paramMap.put("payload", item.getPayload().toString());
-                    jdbcTemplate.update(sql, paramMap);
+                    paramMap.put("payload", item.getPayload());
+                    jdbcTemplate.update(SQL, paramMap);
                 } catch (Exception e) {
                     log.error("{}.process() - {}", CLASS_NAME, e.getMessage(), e);
                 }
@@ -131,7 +130,7 @@ public class EventAuditQueue implements Runnable {
     }
 
     private boolean delay(long millisec) {
-        if (millisec < 0){
+        if (millisec < 0) {
             millisec = 0;
         }
         log.debug("{}.delay({})", CLASS_NAME, millisec);

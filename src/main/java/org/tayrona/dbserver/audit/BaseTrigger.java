@@ -23,7 +23,11 @@ import java.util.List;
 public abstract class BaseTrigger implements Trigger {
     protected static EventAuditQueue eventAuditQueue;
     protected final String CLASS_NAME;
-    protected String schemaName, triggerName, tableName, catalog, action;
+    protected String schemaName;
+    protected String triggerName;
+    protected String tableName;
+    protected String catalog;
+    protected String action;
     protected boolean before;
     protected List<String> columns;
     private static ObjectMapper objectMapper;
@@ -40,7 +44,7 @@ public abstract class BaseTrigger implements Trigger {
      * appropriate flags set. As an example, if the trigger is of type INSERT
      * and UPDATE, then the parameter type is set to (INSERT | UPDATE).
      *
-     * @param conn        a connection to the database (a system connection)
+     * @param connection  a connection to the database (a system connection)
      * @param schemaName  the name of the schema
      * @param triggerName the name of the trigger used in the CREATE TRIGGER
      *                    statement
@@ -50,18 +54,18 @@ public abstract class BaseTrigger implements Trigger {
      * @param type        the operation type: INSERT, UPDATE, DELETE, SELECT, or a
      */
     @Override
-    public void init(Connection conn, String schemaName, String triggerName, String tableName,
+    public void init(Connection connection, String schemaName, String triggerName, String tableName,
                      boolean before, int type) throws SQLException {
         this.schemaName = schemaName;
         this.triggerName = triggerName;
         this.tableName = tableName;
-        this.catalog = conn.getCatalog();
+        this.catalog = connection.getCatalog();
         this.before = before;
-        this.columns = extractColumns(conn);
+        this.columns = extractColumns(connection);
         this.action = calcActions(type);
         log.info("{}.init(catalog:{}, schema:{}, name:{}, table:{}, before:{}, type:{})",
                 CLASS_NAME, catalog, schemaName, triggerName, tableName, before, type);
-    }
+        log.debug("{}init columns: {}", CLASS_NAME, columns);    }
 
     /**
      * This method is called for each triggered action. The method is called
@@ -78,26 +82,26 @@ public abstract class BaseTrigger implements Trigger {
      * The trigger itself may change the data in the newRow array.
      * </p>
      *
-     * @param conn   a connection to the database
-     * @param oldRow the old row, or null if no old row is available (for
-     *               INSERT)
-     * @param newRow the new row, or null if no new row is available (for
-     *               DELETE)
+     * @param connection a connection to the database
+     * @param oldRow     the old row, or null if no old row is available (for
+     *                   INSERT)
+     * @param newRow     the new row, or null if no new row is available (for
+     *                   DELETE)
      * @throws SQLException if the operation must be undone
      */
     @Override
-    public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-        EventAuditQueue eventAuditQueue = getEventAuditQueue();
-        if (eventAuditQueue == null) {
+    public void fire(Connection connection, Object[] oldRow, Object[] newRow) throws SQLException {
+        EventAuditQueue localEventAuditQueue = getEventAuditQueue();
+        if (localEventAuditQueue == null) {
             log.warn("{}.fire(...) - EventAuditQueue is null!", CLASS_NAME);
         } else {
             try {
-                String userName = conn.getMetaData().getUserName();
+                String userName = connection.getMetaData().getUserName();
                 ObjectNode payload = calcJsonObject(oldRow, newRow);
                 String jsonPayload = getObjectMapper().writeValueAsString(payload);
                 EventQueueItem item = new EventQueueItem(catalog, schemaName, tableName, action, userName, jsonPayload);
                 log.debug("{}.fire(...) - queuing item: {}", CLASS_NAME, item);
-                eventAuditQueue.putItem(item);
+                localEventAuditQueue.putItem(item);
             } catch (JsonProcessingException e) {
                 log.error("{}", e.getMessage());
                 throw new SQLException(e.getMessage(), e);
@@ -123,7 +127,7 @@ public abstract class BaseTrigger implements Trigger {
         log.info("{}.remove()", CLASS_NAME);
     }
 
-    protected void logFire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
+    protected void logFire(Object[] oldRow, Object[] newRow) throws SQLException {
         ObjectNode payload = calcJsonObject(oldRow, newRow);
         try {
             String jsonPayload = getObjectMapper().writeValueAsString(payload);
@@ -164,9 +168,9 @@ public abstract class BaseTrigger implements Trigger {
         return ret;
     }
 
-    private List<String> extractColumns(Connection conn) throws SQLException {
+    private List<String> extractColumns(Connection connection) throws SQLException {
         List<String> ret = new ArrayList<>();
-        ResultSet dbSchema = conn.getMetaData().getColumns(catalog, schemaName, tableName, null);
+        ResultSet dbSchema = connection.getMetaData().getColumns(catalog, schemaName, tableName, null);
         if (!dbSchema.isFirst()) {
             dbSchema.next();
         }
@@ -196,11 +200,11 @@ public abstract class BaseTrigger implements Trigger {
         return String.join(" | ", actions);
     }
 
-    private EventAuditQueue getEventAuditQueue() {
-        if (BaseTrigger.eventAuditQueue == null) {
-            BaseTrigger.eventAuditQueue = EventAuditQueue.get();
+    private static EventAuditQueue getEventAuditQueue() {
+        if (eventAuditQueue == null) {
+            eventAuditQueue = EventAuditQueue.get();
         }
-        return BaseTrigger.eventAuditQueue;
+        return eventAuditQueue;
     }
 
     public static ObjectMapper getObjectMapper() {

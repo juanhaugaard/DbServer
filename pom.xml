@@ -18,6 +18,7 @@
         <spring-cloud.version>2021.0.5</spring-cloud.version>
         <h2database.version>2.1.214</h2database.version>
         <mapstruct.version>1.5.3.Final</mapstruct.version>
+        <tayrona.sakila.version>1.0.0</tayrona.sakila.version>
     </properties>
 
     <dependencies>
@@ -42,21 +43,11 @@
             <artifactId>validation-api</artifactId>
             <version>2.0.1.Final</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.cloud</groupId>-->
-<!--            <artifactId>spring-cloud-bus</artifactId>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.cloud</groupId>-->
-<!--            <artifactId>spring-cloud-stream-binder-rabbit</artifactId>-->
-<!--        </dependency>-->
-
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-devtools</artifactId>-->
-<!--            <scope>runtime</scope>-->
-<!--            <optional>true</optional>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.tayrona.sakila</groupId>
+            <artifactId>sakila-server-procs</artifactId>
+            <version>${tayrona.sakila.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>

@@ -11,7 +11,6 @@ import org.tayrona.dbserver.config.H2Configuration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.sql.SQLException;
 import java.util.List;
 
 @Slf4j
@@ -31,7 +30,7 @@ public class EmbeddedClient implements Runnable {
     }
 
     @PostConstruct
-    public void setup() throws SQLException {
+    public void setup()  {
         dbSetup();
         threadSetup();
         log.info("{}.setup() - Execute this a few times: SELECT TIME FROM TIMER", CLASS_NAME);
@@ -45,7 +44,7 @@ public class EmbeddedClient implements Runnable {
         }
     }
 
-    private void dbSetup() throws SQLException {
+    private void dbSetup() {
         List<String> sql = h2Config.getClient().getInitSql();
         for (int i=1; i<sql.size(); i++) {
             jdbcTemplate.execute(sql.get(i));
