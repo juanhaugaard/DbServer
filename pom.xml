@@ -16,7 +16,7 @@
 
     <properties>
         <spring-cloud.version>2021.0.5</spring-cloud.version>
-        <h2database.version>2.1.214</h2database.version>
+        <h2database.version>2.2.220</h2database.version>
         <mapstruct.version>1.5.3.Final</mapstruct.version>
     </properties>
 
