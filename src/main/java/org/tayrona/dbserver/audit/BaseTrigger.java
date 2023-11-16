@@ -155,15 +155,17 @@ public abstract class BaseTrigger implements Trigger {
                 newRowJson.putPOJO(this.columns.get(i), newRow[i]);
             }
         }
-        try {
-            String json = getObjectMapper().writeValueAsString(ret);
-            log.debug("JSON: {}", json);
-            org.tayrona.dbserver.services.model.Timer timer = getObjectMapper().readValue(json, org.tayrona.dbserver.services.model.Timer.class);
-            log.debug("Timer: {}", timer);
-            TimerDto timerDto = TimerMapper.INSTANCE.toDto(timer);
-            log.debug("TimerDto: {}", timerDto);
-        } catch (JsonProcessingException e) {
-            log.error("{}- {}", e.getClass().getSimpleName(), e.getMessage());
+        if (log.isDebugEnabled()) {
+            try {
+                String json = getObjectMapper().writeValueAsString(ret);
+                log.debug("JSON: {}", json);
+                org.tayrona.dbserver.services.model.Timer timer = getObjectMapper().readValue(json, org.tayrona.dbserver.services.model.Timer.class);
+                log.debug("Timer: {}", timer);
+                TimerDto timerDto = TimerMapper.INSTANCE.toDto(timer);
+                log.debug("TimerDto: {}", timerDto);
+            } catch (JsonProcessingException e) {
+                log.error("{}- {}", e.getClass().getSimpleName(), e.getMessage());
+            }
         }
         return ret;
     }
